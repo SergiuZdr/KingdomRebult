@@ -1,0 +1,34 @@
+[gd_scene format=3 uid="uid://bu88ersd0tw34"]
+
+[ext_resource type="Script" uid="uid://t5in3fatlgs0" path="res://scripts/building.gd" id="1_055sl"]
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_ofgqx"]
+load_path = "res://.godot/imported/tawern.jpeg-9850870c294d6ddd503e30f66d104591.ctex"
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ju6ke"]
+size = Vector2(114, 138)
+
+[node name="Building" type="Area2D" unique_id=1982720633]
+position = Vector2(60, 78)
+script = ExtResource("1_055sl")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=2101352819]
+position = Vector2(-3.0000017, 0.050841868)
+scale = Vector2(0.28217822, 0.24751365)
+texture = SubResource("CompressedTexture2D_ofgqx")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1603204279]
+visible = false
+z_index = 1
+z_as_relative = false
+position = Vector2(-3, -9)
+shape = SubResource("RectangleShape2D_ju6ke")
+
+[node name="NameLabel" type="Label" parent="." unique_id=1019099009]
+z_as_relative = false
+offset_left = -32.0
+offset_top = -83.0
+offset_right = 22.0
+offset_bottom = -59.0
+text = "Cladire"
+metadata/_edit_use_anchors_ = true

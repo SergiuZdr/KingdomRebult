@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3 uid="uid://chouse00001"]
+
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_house"]
+
+[resource]
+script = ExtResource("1_house")
+building_name = "Casă"
+description = "Locuință pentru cetățeni. Crește populația maximă."
+cost_gold = 50
+cost_wood = 80
+cost_stone = 30
+build_time = 1
+workforce_required = 0
+produces_gold = 0
+produces_wood = 0
+produces_stone = 0
+produces_food = 0
+produces_morale = 0
+consumes_food = 0
+increases_population = 5
+max_level = 2

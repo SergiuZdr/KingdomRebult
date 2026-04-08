@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3 uid="uid://ctavern00001"]
+
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_tavern"]
+
+[resource]
+script = ExtResource("1_tavern")
+building_name = "Tavernă"
+description = "Un loc de întâlnire pentru cetățeni. Crește moralul locuitorilor."
+cost_gold = 100
+cost_wood = 50
+cost_stone = 20
+build_time = 2
+workforce_required = 2
+produces_gold = 10
+produces_wood = 0
+produces_stone = 0
+produces_food = 0
+produces_morale = 5
+consumes_food = 2
+increases_population = 0
+max_level = 3

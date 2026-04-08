@@ -1,0 +1,154 @@
+[gd_scene format=3 uid="uid://b14abxqslj1mo"]
+
+[ext_resource type="Script" uid="uid://bvdd0u8yo8rnx" path="res://City_view.gd" id="1_857x6"]
+[ext_resource type="PackedScene" uid="uid://bu88ersd0tw34" path="res://scripts/management/building.tscn" id="2_ssmkp"]
+[ext_resource type="PackedScene" uid="uid://bjsvac4b7xqji" path="res://scenes/management/recap_screen.tscn" id="3_ssmkp"]
+
+[node name="CityView" type="Node2D" unique_id=1]
+script = ExtResource("1_857x6")
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=332996612]
+limit_left = 0
+limit_top = 0
+limit_right = 3200
+limit_bottom = 720
+
+[node name="Background" type="Node2D" parent="." unique_id=962037213]
+
+[node name="ColorRect" type="ColorRect" parent="Background" unique_id=1427103612]
+z_index = -1
+offset_right = 3200.0
+offset_bottom = 720.0
+color = Color(0.1764706, 0.22745098, 0.11764706, 1)
+
+[node name="Buildings" type="Node2D" parent="." unique_id=1019653517]
+z_as_relative = false
+
+[node name="tavern" parent="Buildings" unique_id=735078393 instance=ExtResource("2_ssmkp")]
+position = Vector2(582, 190)
+building_name = "Tavern"
+building_description = "Here u can recruit soldiers "
+
+[node name="Forest" parent="Buildings" unique_id=2 instance=ExtResource("2_ssmkp")]
+position = Vector2(66, 120)
+building_name = "Forest"
+building_description = "Send workers here to gather wood.It produces 10 wood for every worker per turn"
+
+[node name="Quarry" parent="Buildings" unique_id=1982720633 instance=ExtResource("2_ssmkp")]
+position = Vector2(60, 535)
+building_name = "Quarry"
+building_description = "Send workers here to gather stone.It produces 10 stone for every worker per turn"
+is_built = false
+
+[node name="Iron mine" parent="Buildings" unique_id=48559202 instance=ExtResource("2_ssmkp")]
+position = Vector2(180, 650)
+building_name = "Iron Mine"
+building_description = "Send workers here to gather iron.It produces 6 iron for every worker per turn"
+
+[node name="Farm" parent="Buildings" unique_id=1669291116 instance=ExtResource("2_ssmkp")]
+position = Vector2(529, 641)
+building_name = "Farm"
+building_description = "Send workers here to gather food.It produces 12 food for every worker per turn"
+is_built = false
+
+[node name="Steel forge" parent="Buildings" unique_id=56955532 instance=ExtResource("2_ssmkp")]
+position = Vector2(1144, 185)
+building_name = "Steel Forge"
+building_description = "Send workers here to forge steel out of iron.It consumes 9 iron to produce 3 steel for every worker per turn"
+
+[node name="Barracks" parent="Buildings" unique_id=325043500 instance=ExtResource("2_ssmkp")]
+position = Vector2(975, 338)
+building_name = "Barracks"
+
+[node name="Training grounds" parent="Buildings" unique_id=209897697 instance=ExtResource("2_ssmkp")]
+position = Vector2(1095, 529)
+building_name = "Training Grounds"
+
+[node name="Weapon forge" parent="Buildings" unique_id=1661080633 instance=ExtResource("2_ssmkp")]
+position = Vector2(350, 289)
+building_name = "Weapon forge"
+
+[node name="Butchery" parent="Buildings" unique_id=834685791 instance=ExtResource("2_ssmkp")]
+position = Vector2(850, 152)
+building_name = "Butchery"
+
+[node name="UI" type="CanvasLayer" parent="." unique_id=1364219243]
+
+[node name="HUD" type="Control" parent="UI" unique_id=584505463]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="ResourceBar" type="HBoxContainer" parent="UI/HUD" unique_id=1532461902]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 4.0
+offset_top = 6.0
+offset_right = 1157.0
+offset_bottom = 46.0
+grow_horizontal = 2
+
+[node name="LabelGold" type="Label" parent="UI/HUD/ResourceBar" unique_id=583656865]
+layout_mode = 2
+text = "Aur: 500"
+
+[node name="LabelWood" type="Label" parent="UI/HUD/ResourceBar" unique_id=923220543]
+layout_mode = 2
+text = "Lemn: 0"
+
+[node name="LabelStone" type="Label" parent="UI/HUD/ResourceBar" unique_id=1403006322]
+layout_mode = 2
+text = "Piatră: 0"
+
+[node name="LabelIron" type="Label" parent="UI/HUD/ResourceBar" unique_id=266558219]
+layout_mode = 2
+
+[node name="LabelTurn" type="Label" parent="UI/HUD/ResourceBar" unique_id=376432190]
+layout_mode = 2
+text = "Tura: 1"
+
+[node name="LabelSteel" type="Label" parent="UI/HUD/ResourceBar" unique_id=2058510189]
+layout_mode = 2
+
+[node name="LabelFood" type="Label" parent="UI/HUD/ResourceBar" unique_id=1373086539]
+layout_mode = 2
+text = "Hrană: 50"
+
+[node name="LabelMorale" type="Label" parent="UI/HUD/ResourceBar" unique_id=1982628388]
+layout_mode = 2
+text = "Moral: 100"
+
+[node name="LabelPep" type="Label" parent="UI/HUD/ResourceBar" unique_id=1801292585]
+layout_mode = 2
+text = "People: 10"
+
+[node name="BtnEndTurn" type="Button" parent="UI/HUD" unique_id=240704193]
+layout_direction = 1
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 26.250002
+anchor_top = 16.25
+anchor_right = 26.250002
+anchor_bottom = 16.25
+offset_left = -0.00012207031
+offset_right = 133.99988
+offset_bottom = 50.0
+grow_horizontal = 0
+grow_vertical = 0
+text = "Sfarsit tura"
+
+[node name="Button" type="Button" parent="UI/HUD" unique_id=1323269101]
+layout_mode = 0
+offset_left = 950.0
+offset_top = 650.0
+offset_right = 1020.0
+offset_bottom = 690.0
+text = "Soldiers"
+
+[node name="RecapScreen" parent="." unique_id=828854842 instance=ExtResource("3_ssmkp")]
+
+[connection signal="input_event" from="Buildings/tavern" to="Buildings/tavern" method="_on_input_event"]
+[connection signal="pressed" from="UI/HUD/BtnEndTurn" to="." method="_on_btn_end_turn_pressed"]
+[connection signal="pressed" from="UI/HUD/Button" to="." method="_on_btn_soldiers_pressed"]

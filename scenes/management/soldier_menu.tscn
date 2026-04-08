@@ -1,0 +1,43 @@
+[gd_scene format=3 uid="uid://sxvab8uvinxy"]
+
+[ext_resource type="Script" uid="uid://bhpqjpiqfvbqn" path="res://scripts/management/soldier_menu.gd" id="1_u0qrd"]
+
+[node name="SoldierMenu" type="Control" unique_id=1097177345]
+z_as_relative = false
+layout_mode = 3
+anchors_preset = 0
+offset_right = 1280.0
+offset_bottom = 720.0
+script = ExtResource("1_u0qrd")
+
+[node name="Background" type="ColorRect" parent="." unique_id=466133615]
+custom_minimum_size = Vector2(1280, 720)
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+color = Color(0.101960786, 0.101960786, 0.18039216, 1)
+
+[node name="Title" type="Label" parent="." unique_id=20196818]
+layout_mode = 0
+offset_left = 539.0
+offset_top = 12.0
+offset_right = 646.0
+offset_bottom = 51.0
+theme_override_font_sizes/font_size = 28
+text = "Soldiers"
+horizontal_alignment = 1
+
+[node name="SoldierList" type="VBoxContainer" parent="." unique_id=537368751]
+layout_mode = 0
+offset_left = 40.0
+offset_top = 80.0
+offset_right = 640.0
+offset_bottom = 680.0
+
+[node name="BtnClose" type="Button" parent="." unique_id=643633227]
+layout_mode = 0
+offset_left = 1100.0
+offset_top = 20.0
+offset_right = 1220.0
+offset_bottom = 64.0
+text = "Close"

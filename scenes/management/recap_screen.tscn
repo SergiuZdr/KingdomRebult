@@ -1,0 +1,45 @@
+[gd_scene format=3 uid="uid://bjsvac4b7xqji"]
+
+[ext_resource type="Script" uid="uid://dhnne2af0l8dc" path="res://scripts/ui/recap_screen.gd" id="1_diutl"]
+
+[node name="RecapScreen" type="CanvasLayer" unique_id=828854842]
+script = ExtResource("1_diutl")
+
+[node name="Panel" type="Panel" parent="." unique_id=1391672005]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -300.0
+offset_top = 75.0
+offset_right = 300.0
+offset_bottom = 575.0
+grow_horizontal = 2
+
+[node name="Title" type="Label" parent="Panel" unique_id=1111572230]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -45.0
+offset_right = 45.0
+offset_bottom = 23.0
+grow_horizontal = 2
+text = "End of Turn"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="Panel" unique_id=262054081]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 60.0
+offset_right = 580.0
+offset_bottom = 440.0
+
+[node name="RecapList" type="VBoxContainer" parent="Panel/ScrollContainer" unique_id=244231003]
+layout_mode = 2
+
+[node name="BtnContinue" type="Button" parent="Panel" unique_id=2006100368]
+layout_mode = 0
+offset_left = 500.0
+offset_top = 450.0
+offset_right = 579.0
+offset_bottom = 481.0
+text = "Continue"
