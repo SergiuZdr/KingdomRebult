@@ -25,49 +25,49 @@ color = Color(0.1764706, 0.22745098, 0.11764706, 1)
 [node name="Buildings" type="Node2D" parent="." unique_id=1019653517]
 z_as_relative = false
 
-[node name="tavern" parent="Buildings" unique_id=735078393 instance=ExtResource("2_ssmkp")]
+[node name="Tavern" parent="Buildings" unique_id=735078393 instance=ExtResource("2_ssmkp")]
 position = Vector2(582, 190)
 building_name = "Tavern"
-building_description = "Here u can recruit soldiers "
+building_description = "Recruit soldiers and improve recruit quality with innkeepers."
 
 [node name="Forest" parent="Buildings" unique_id=2 instance=ExtResource("2_ssmkp")]
 position = Vector2(66, 120)
 building_name = "Forest"
-building_description = "Send workers here to gather wood.It produces 10 wood for every worker per turn"
+building_description = "Gather wood for construction and production."
 
 [node name="Quarry" parent="Buildings" unique_id=1982720633 instance=ExtResource("2_ssmkp")]
 position = Vector2(60, 535)
 building_name = "Quarry"
-building_description = "Send workers here to gather stone.It produces 10 stone for every worker per turn"
+building_description = "Gather stone for construction and industry."
 is_built = false
 
-[node name="Iron mine" parent="Buildings" unique_id=48559202 instance=ExtResource("2_ssmkp")]
+[node name="Iron Mine" parent="Buildings" unique_id=48559202 instance=ExtResource("2_ssmkp")]
 position = Vector2(180, 650)
 building_name = "Iron Mine"
-building_description = "Send workers here to gather iron.It produces 6 iron for every worker per turn"
+building_description = "Extract iron ore for processing."
 
 [node name="Farm" parent="Buildings" unique_id=1669291116 instance=ExtResource("2_ssmkp")]
 position = Vector2(529, 641)
 building_name = "Farm"
-building_description = "Send workers here to gather food.It produces 12 food for every worker per turn"
+building_description = "Produce food to sustain the city."
 is_built = false
 
-[node name="Steel forge" parent="Buildings" unique_id=56955532 instance=ExtResource("2_ssmkp")]
+[node name="Steel Forge" parent="Buildings" unique_id=56955532 instance=ExtResource("2_ssmkp")]
 position = Vector2(1144, 185)
 building_name = "Steel Forge"
-building_description = "Send workers here to forge steel out of iron.It consumes 9 iron to produce 3 steel for every worker per turn"
+building_description = "Forge steel from iron."
 
 [node name="Barracks" parent="Buildings" unique_id=325043500 instance=ExtResource("2_ssmkp")]
 position = Vector2(975, 338)
 building_name = "Barracks"
 
-[node name="Training grounds" parent="Buildings" unique_id=209897697 instance=ExtResource("2_ssmkp")]
+[node name="Training Grounds" parent="Buildings" unique_id=209897697 instance=ExtResource("2_ssmkp")]
 position = Vector2(1095, 529)
 building_name = "Training Grounds"
 
-[node name="Weapon forge" parent="Buildings" unique_id=1661080633 instance=ExtResource("2_ssmkp")]
+[node name="Weapon Forge" parent="Buildings" unique_id=1661080633 instance=ExtResource("2_ssmkp")]
 position = Vector2(350, 289)
-building_name = "Weapon forge"
+building_name = "Weapon Forge"
 
 [node name="Butchery" parent="Buildings" unique_id=834685791 instance=ExtResource("2_ssmkp")]
 position = Vector2(850, 152)
@@ -152,6 +152,6 @@ text = "Soldiers"
 
 [node name="CombatScene" parent="." unique_id=83119828 instance=ExtResource("4_dsn67")]
 
-[connection signal="input_event" from="Buildings/tavern" to="Buildings/tavern" method="_on_input_event"]
+[connection signal="input_event" from="Buildings/Tavern" to="Buildings/Tavern" method="_on_input_event"]
 [connection signal="pressed" from="UI/HUD/BtnEndTurn" to="." method="_on_btn_end_turn_pressed"]
 [connection signal="pressed" from="UI/HUD/Button" to="." method="_on_btn_soldiers_pressed"]

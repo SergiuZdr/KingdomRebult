@@ -119,13 +119,13 @@ func _build_popup() -> void:
 	close_button.pressed.connect(hide)
 	popup_panel.add_child(close_button)
 
-func show_building(b_name: String, b_desc: String) -> void:
+func show_building(b_name: String, _b_desc: String) -> void:
 	current_building = b_name
+	var data := GameState.get_building_data(current_building)
 	title_label.text = b_name
-	desc_label.text = b_desc
+	desc_label.text = data.description if data != null else b_desc
 
 	var is_tavern = (b_name == "Tavern")
-	#var is_training = (b_name == "Training Ground")
 
 	tavern_section.visible = is_tavern
 	workers_label.visible = not is_tavern
@@ -146,6 +146,7 @@ func _refresh() -> void:
 		_refresh_standard()
 
 func _refresh_standard() -> void:
+	var data := GameState.get_building_data(current_building)
 	var workers = GameState.building_workers.get(current_building, 0)
 	workers_label.text = "Workers: %d  |  Available: %d / %d" % [
 		workers,
@@ -153,32 +154,36 @@ func _refresh_standard() -> void:
 		GameState.workforce_total
 	]
 
-# caz special Training Ground
-	if current_building == "Training Grounds":
-		var xp = workers * 10
-		production_label.text = "XP per turn: +%d to all living soldiers\n(%d trainers × 10 XP)" % [
-			xp, workers
+	if data == null:
+		production_label.text = "No building data configured."
+		return
+
+	if data.is_training_building():
+		var xp = workers * data.training_xp_per_worker
+		production_label.text = "XP per turn: +%d to all living soldiers\n(%d trainers × %d XP)" % [
+			xp, workers, data.training_xp_per_worker
 		]
 		return
-#restul cladirilor
+
 	var prod_text = "Production per turn:\n"
-	if GameState.PRODUCTION.has(current_building):
-		var prod = GameState.PRODUCTION[current_building]
-		if prod.is_empty():
-			prod_text += "  — (special building)"
-		else:
-			for resource in prod:
-				var amount = prod[resource] * workers
-				#var sign = "+" if amount >= 0 else ""
-				prod_text += "  %d %s\n" % [ amount, resource]
+	var prod = data.get_production_for_workers(workers)
+	if prod.is_empty():
+		prod_text += "  — (special building)"
+	else:
+		for resource in prod:
+			var amount = prod[resource]
+			prod_text += "  %d %s\n" % [amount, resource]
 	if workers == 0:
 		prod_text += "  (assign workers to produce)"
 	production_label.text = prod_text
 
 func _refresh_tavern() -> void:
 	var workers = GameState.building_workers.get("Tavern", 0)
+	var data := GameState.get_building_data("Tavern")
 	var cost = _get_recruit_cost()
 	var stat_bonus = workers * 5
+	if data != null:
+		stat_bonus = workers * data.recruit_stat_bonus_per_worker
 
 	tavern_info_label.text = (
 		"Innkeepers assigned: %d / %d available\n" +
@@ -202,8 +207,7 @@ func _refresh_tavern() -> void:
 	workers_label.text = ""
 
 func _get_recruit_cost() -> int:
-	var workers = GameState.building_workers.get("Tavern", 0)
-	return max(50, 100 - workers * 10)
+	return GameState.get_recruit_cost()
 
 func _on_add_worker() -> void:
 	GameState.assign_worker(current_building, 1)
@@ -217,7 +221,6 @@ func _on_recruit() -> void:
 	var name_text = recruit_name_input.text.strip_edges()
 	if name_text == "":
 		name_text = "Soldier %d" % (GameState.soldiers.size() + 1)
-	var workers = GameState.building_workers.get("Tavern", 0)
-	if GameState.recruit_soldier(name_text, workers):
+	if GameState.recruit_soldier(name_text):
 		recruit_name_input.text = ""
 		_refresh_tavern()

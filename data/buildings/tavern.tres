@@ -1,21 +1,29 @@
 [gd_resource type="Resource" script_class="BuildingData" format=3 uid="uid://ctavern00001"]
 
-[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_tavern"]
+[ext_resource type="Script" path="res://scripts/data/BuildingData.gd" id="1_tavern"]
 
 [resource]
 script = ExtResource("1_tavern")
-building_name = "Tavernă"
-description = "Un loc de întâlnire pentru cetățeni. Crește moralul locuitorilor."
+building_id = "tavern"
+building_name = "Tavern"
+description = "Recruit soldiers and improve recruit quality through innkeepers."
+category = 3
 cost_gold = 100
 cost_wood = 50
 cost_stone = 20
 build_time = 2
 workforce_required = 2
-produces_gold = 10
+produces_gold = 0
 produces_wood = 0
 produces_stone = 0
+produces_iron = 0
+produces_steel = 0
 produces_food = 0
-produces_morale = 5
+produces_morale = 0
 consumes_food = 2
 increases_population = 0
 max_level = 3
+recruit_base_cost = 100
+recruit_min_cost = 50
+recruit_cost_reduction_per_worker = 10
+recruit_stat_bonus_per_worker = 5

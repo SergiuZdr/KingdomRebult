@@ -26,9 +26,36 @@ var turn_recap: Array[String] = []
 
 # --- INVENTAR ---
 var available_items: Array[ItemData] = []
+var building_definitions: Dictionary = {}
+var building_workers: Dictionary = {}
 
 func _ready() -> void:
+	_load_building_definitions()
 	_populate_shop()
+
+func _load_building_definitions() -> void:
+	building_definitions.clear()
+	var existing_workers := building_workers.duplicate()
+	building_workers.clear()
+
+	var dir := DirAccess.open("res://data/buildings")
+	if dir == null:
+		push_warning("Could not open res://data/buildings")
+		return
+
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	while file_name != "":
+		if not dir.current_is_dir() and file_name.ends_with(".tres"):
+			var path := "res://data/buildings/%s" % file_name
+			var data = load(path)
+			if data is BuildingData and data.building_name != "":
+				building_definitions[data.building_name] = data
+		file_name = dir.get_next()
+	dir.list_dir_end()
+
+	for building_name in building_definitions.keys():
+		building_workers[building_name] = existing_workers.get(building_name, 0)
 
 func _populate_shop() -> void:
 	available_items = [
@@ -55,23 +82,48 @@ func buy_item(item: ItemData, soldier: SoldierData, slot: String) -> bool:
 	print("%s equipped %s" % [soldier.soldier_name, item.item_name])
 	return true
 	
-func recruit_soldier(s_name: String, innkeeper_bonus: int = 0) -> bool:
+func get_building_data(building_name: String) -> BuildingData:
+	return building_definitions.get(building_name) as BuildingData
+
+func get_building_production(building_name: String, workers: int) -> Dictionary:
+	var data := get_building_data(building_name)
+	if data == null or workers <= 0:
+		return {}
+	return data.get_production_for_workers(workers)
+
+func get_recruit_cost() -> int:
+	var tavern_data := get_building_data("Tavern")
+	var innkeepers := building_workers.get("Tavern", 0)
+	if tavern_data == null:
+		return max(50, 100 - innkeepers * 10)
+	return max(
+		tavern_data.recruit_min_cost,
+		tavern_data.recruit_base_cost - innkeepers * tavern_data.recruit_cost_reduction_per_worker
+	)
+
+func recruit_soldier(s_name: String) -> bool:
 	if soldiers.size() >= max_soldiers:
 		print("No room for more soldiers!")
 		return false
-	var cost = max(50, 100 - innkeeper_bonus * 10)
+
+	var tavern_data := get_building_data("Tavern")
+	var innkeepers := building_workers.get("Tavern", 0)
+	var cost := get_recruit_cost()
 	if gold < cost:
 		print("Not enough gold! Need %d" % cost)
 		return false
 
-	var bonus = innkeeper_bonus * 2
+	var stat_bonus := innkeepers * 5
+	if tavern_data != null:
+		stat_bonus = innkeepers * tavern_data.recruit_stat_bonus_per_worker
+
 	var s = SoldierData.new()
 	s.soldier_name = s_name
-	s.hp_max    = 80 + randi_range(0 + bonus, 40 + bonus)
+	s.hp_max    = 80 + randi_range(0, 40) + stat_bonus
 	s.hp_current = s.hp_max
-	s.power     = 8  + randi_range(0 + bonus, 6  + bonus)
-	s.speed     = 4  + randi_range(0 + bonus , 4  + bonus)
-	s.dexterity = 4  + randi_range(0 + bonus, 4  + bonus)
+	s.power     = 8  + randi_range(0, 6) + stat_bonus
+	s.speed     = 4  + randi_range(0, 4) + stat_bonus
+	s.dexterity = 4  + randi_range(0, 4) + stat_bonus
 
 	soldiers.append(s)
 	gold -= cost
@@ -85,36 +137,6 @@ func recruit_soldier(s_name: String, innkeeper_bonus: int = 0) -> bool:
 # --- PROGRES ---
 var current_turn: int = 0
 
-# --- CLĂDIRI ACTIVE ---
-# Cheia e numele clădirii, valoarea e câți muncitori sunt asignați
-var building_workers: Dictionary = {
-	"Forest":          0,
-	"Quarry":          0,
-	"Iron Mine":       0,
-	"Farm":            0,
-	"Steel Forge":     0,
-	"Market":          0,
-	"Butchery":        0,
-	"Weapon Forge":    0,
-	"Tavern":          0,
-	"Training Grounds":0,
-	"Barracks":        0,
-}
-
-const PRODUCTION: Dictionary = {
-	"Forest":        {"Wood": 10},
-	"Quarry":        {"Stone": 8},
-	"Iron Mine":     {"Iron": 6},
-	"Farm":          {"Food": 12},
-	"Steel Forge":   {"Steel": 3, "Iron":-9},
-	"Market":        {"Gold": 25},
-	"Butchery":      {"Food": -5, "Gold": 15},
-	"Weapon Forge":  {"Gold": -10, "Steel": -2},
-	"Tavern":        {"Gold": 30},
-	"Training Grounds": {},
-	"Barracks":      {},
-}
-
 # --- SEMNALE ---
 signal resources_changed
 signal turn_ended(turn_number: int)
@@ -123,6 +145,9 @@ signal soldiers_changed
 signal recap_ready
 
 func assign_worker(building_name: String, amount: int) -> void:
+	if not building_workers.has(building_name):
+		return
+
 	var current = building_workers.get(building_name, 0)
 	var new_amount = current + amount
 
@@ -175,22 +200,22 @@ func _process_production() -> void:
 		var workers = building_workers[b_name]
 		if workers <= 0:
 			continue
-		if not PRODUCTION.has(b_name):
-			continue
-		var prod = PRODUCTION[b_name]
+
+		var prod := get_building_production(b_name, workers)
 		if prod.is_empty():
 			continue
 			
 		var line = "%s (%d workers): " % [b_name, workers]
 		var parts = []
 		for resource in prod:
-			var amount = prod[resource] * workers
+			var amount = prod[resource]
 			if resource == "Wood":   wood  += amount
 			if resource == "Stone":  stone += amount
 			if resource == "Iron":   iron  += amount
 			if resource == "Steel":  steel += amount
 			if resource == "Food":   food  += amount
 			if resource == "Gold":   gold  += amount
+			if resource == "Morale": morale += amount
 			
 			if amount != 0:
 				var sign = "+" if amount >= 0 else ""
@@ -204,12 +229,16 @@ func _process_production() -> void:
 
 
 func _process_training() -> void:
-	var trainers = building_workers.get("Training Grounds", 0)
-	if trainers <= 0 or soldiers.is_empty():
+	var training_data := get_building_data("Training Grounds")
+	if training_data == null or soldiers.is_empty():
 		return
 
-	var xp_per_soldier = trainers * 10
-	turn_recap.append("Training Ground: +%d XP to all soldiers" % xp_per_soldier)
+	var trainers = building_workers.get("Training Grounds", 0)
+	if trainers <= 0 or training_data.training_xp_per_worker <= 0:
+		return
+
+	var xp_per_soldier = trainers * training_data.training_xp_per_worker
+	turn_recap.append("%s: +%d XP to all soldiers" % [training_data.building_name, xp_per_soldier])
 	for soldier in soldiers:
 		if not soldier.is_alive():
 			continue

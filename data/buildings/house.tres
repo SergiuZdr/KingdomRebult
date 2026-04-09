@@ -1,11 +1,12 @@
 [gd_resource type="Resource" script_class="BuildingData" format=3 uid="uid://chouse00001"]
 
-[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_house"]
+[ext_resource type="Script" path="res://scripts/data/BuildingData.gd" id="1_house"]
 
 [resource]
 script = ExtResource("1_house")
-building_name = "Casă"
-description = "Locuință pentru cetățeni. Crește populația maximă."
+building_id = "house"
+building_name = "House"
+description = "Legacy housing resource definition."
 cost_gold = 50
 cost_wood = 80
 cost_stone = 30
@@ -14,6 +15,8 @@ workforce_required = 0
 produces_gold = 0
 produces_wood = 0
 produces_stone = 0
+produces_iron = 0
+produces_steel = 0
 produces_food = 0
 produces_morale = 0
 consumes_food = 0
