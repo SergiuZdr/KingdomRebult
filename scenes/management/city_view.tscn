@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://bvdd0u8yo8rnx" path="res://City_view.gd" id="1_857x6"]
 [ext_resource type="PackedScene" uid="uid://bu88ersd0tw34" path="res://scripts/management/building.tscn" id="2_ssmkp"]
 [ext_resource type="PackedScene" uid="uid://bjsvac4b7xqji" path="res://scenes/management/recap_screen.tscn" id="3_ssmkp"]
+[ext_resource type="PackedScene" uid="uid://cqughj8gbnegw" path="res://scenes/combat/combat_scene.tscn" id="4_dsn67"]
 
 [node name="CityView" type="Node2D" unique_id=1]
 script = ExtResource("1_857x6")
@@ -148,6 +149,8 @@ offset_bottom = 690.0
 text = "Soldiers"
 
 [node name="RecapScreen" parent="." unique_id=828854842 instance=ExtResource("3_ssmkp")]
+
+[node name="CombatScene" parent="." unique_id=83119828 instance=ExtResource("4_dsn67")]
 
 [connection signal="input_event" from="Buildings/tavern" to="Buildings/tavern" method="_on_input_event"]
 [connection signal="pressed" from="UI/HUD/BtnEndTurn" to="." method="_on_btn_end_turn_pressed"]

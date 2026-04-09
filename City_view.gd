@@ -9,15 +9,18 @@ extends Node2D
 @onready var label_food:   Label = $UI/HUD/ResourceBar/LabelFood
 @onready var label_morale: Label = $UI/HUD/ResourceBar/LabelMorale
 @onready var label_pep:    Label = $UI/HUD/ResourceBar/LabelPep
+@onready var combat_scene = $CombatScene
 
 const CAMERA_SPEED: float = 400.0
 
 func _ready() -> void:
 	GameState.in_city_view = true
-	$UI.visible = true
 	_update_resource_display()
 	GameState.resources_changed.connect(_update_resource_display)
-
+	GameState.combat_started_from_turn.connect(_on_combat_started)
+	
+func _on_combat_started() -> void:
+	$UI.visible = false
 func _process(delta: float) -> void:
 	_handle_camera(delta)
 
@@ -51,4 +54,5 @@ func _on_btn_soldiers_pressed() -> void:
 	if soldier_menu == null:
 		soldier_menu = preload("res://scenes/management/soldier_menu.tscn").instantiate()
 		add_child(soldier_menu)
+	$UI.visible = false
 	soldier_menu.open()

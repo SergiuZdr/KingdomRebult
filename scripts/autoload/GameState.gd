@@ -20,9 +20,41 @@ var max_soldiers: int = 5
 var menu_open: bool = false
 var in_city_view: bool = true
 
+
 # --- RECAP ---
 var turn_recap: Array[String] = []
 
+# --- INVENTAR ---
+var available_items: Array[ItemData] = []
+
+func _ready() -> void:
+	_populate_shop()
+
+func _populate_shop() -> void:
+	available_items = [
+		ItemData.make_iron_sword(),
+		ItemData.make_steel_axe(),
+		ItemData.make_shortbow(),
+		ItemData.make_dagger(),
+		ItemData.make_leather_armor(),
+		ItemData.make_chainmail(),
+		ItemData.make_plate_armor(),
+	]
+
+func buy_item(item: ItemData, soldier: SoldierData, slot: String) -> bool:
+	if gold < item.gold_cost:
+		print("Not enough gold!")
+		return false
+	match slot:
+		"weapon_1": soldier.weapon_1 = item
+		"weapon_2": soldier.weapon_2 = item
+		"armor":    soldier.armor = item
+	gold -= item.gold_cost
+	emit_signal("resources_changed")
+	emit_signal("soldiers_changed")
+	print("%s equipped %s" % [soldier.soldier_name, item.item_name])
+	return true
+	
 func recruit_soldier(s_name: String, innkeeper_bonus: int = 0) -> bool:
 	if soldiers.size() >= max_soldiers:
 		print("No room for more soldiers!")
@@ -65,7 +97,7 @@ var building_workers: Dictionary = {
 	"Butchery":        0,
 	"Weapon Forge":    0,
 	"Tavern":          0,
-	"Training Ground": 0,
+	"Training Grounds":0,
 	"Barracks":        0,
 }
 
@@ -79,7 +111,7 @@ const PRODUCTION: Dictionary = {
 	"Butchery":      {"Food": -5, "Gold": 15},
 	"Weapon Forge":  {"Gold": -10, "Steel": -2},
 	"Tavern":        {"Gold": 30},
-	"Training Ground": {},
+	"Training Grounds": {},
 	"Barracks":      {},
 }
 
@@ -104,6 +136,9 @@ func assign_worker(building_name: String, amount: int) -> void:
 	building_workers[building_name] = new_amount
 	workforce_available -= amount
 	emit_signal("resources_changed")
+	
+var turns_since_combat: int = 0
+var combat_difficulty: int = 1
 
 func end_turn() -> void:
 	turn_recap.clear()
@@ -111,9 +146,61 @@ func end_turn() -> void:
 	_process_production()
 	_process_training()
 	current_turn += 1
-	emit_signal("recap_ready")
-	emit_signal("turn_ended", current_turn)
+	turns_since_combat += 1
+	print("turns_since_combat: ", turns_since_combat)
 	emit_signal("resources_changed")
+	
+	if turns_since_combat >= 2:
+		turns_since_combat = 0
+		combat_difficulty = current_turn / 2 + 1
+		print("Generating wave, difficulty: ", combat_difficulty)  # ← adaugă
+		var wave = EnemyData.make_random_wave(combat_difficulty)
+		print("Wave size: ", wave.size())  # ← adaugă
+		turn_recap.append("Enemies approach the city!")
+		print("Starting combat...")  # ← adaugă
+		CombatState.start_combat(wave)
+		emit_signal("combat_started_from_turn")
+		print("Signal emitted")  # ← adaugă
+	else:
+		emit_signal("recap_ready")
+		emit_signal("turn_ended", current_turn)
+
+signal combat_started_from_turn
+
+
+
+func _process_production() -> void:
+	var anything_produced = false
+	for b_name in building_workers:
+		var workers = building_workers[b_name]
+		if workers <= 0:
+			continue
+		if not PRODUCTION.has(b_name):
+			continue
+		var prod = PRODUCTION[b_name]
+		if prod.is_empty():
+			continue
+			
+		var line = "%s (%d workers): " % [b_name, workers]
+		var parts = []
+		for resource in prod:
+			var amount = prod[resource] * workers
+			if resource == "Wood":   wood  += amount
+			if resource == "Stone":  stone += amount
+			if resource == "Iron":   iron  += amount
+			if resource == "Steel":  steel += amount
+			if resource == "Food":   food  += amount
+			if resource == "Gold":   gold  += amount
+			
+			if amount != 0:
+				var sign = "+" if amount >= 0 else ""
+				parts.append("%s%d %s" % [sign, amount, resource])
+			
+		if not parts.is_empty():
+			turn_recap.append(line + ", ".join(parts))
+			anything_produced = true
+	if not anything_produced:
+		turn_recap.append("No production this turn — assign workers to buildings.")
 
 
 func _process_training() -> void:
@@ -130,29 +217,3 @@ func _process_training() -> void:
 		if leveled_up:
 			turn_recap.append("  %s reached Level %d!" % [soldier.soldier_name, soldier.level])
 			emit_signal("soldiers_changed")
-
-func _process_production() -> void:
-	var anything_produced = false
-	for b_name in building_workers:
-		var workers = building_workers[b_name]
-		if workers <= 0:
-			continue
-		if not PRODUCTION.has(b_name):
-			continue
-		var prod = PRODUCTION[b_name]
-		if prod.is_empty():
-			continue
-		var line = "%s (%d workers): " % [b_name, workers]
-		var parts = []
-		if prod.has("Wood"):   wood  += prod["Wood"]  * workers
-		if prod.has("Stone"):  stone += prod["Stone"] * workers
-		if prod.has("Iron"):   iron  += prod["Iron"]  * workers
-		if prod.has("Steel"):  steel += prod["Steel"] * workers
-		if prod.has("Food"):   food  += prod["Food"]  * workers
-		if prod.has("Gold"):   gold  += prod["Gold"]  * workers
-		if prod.has("workforce_total"):   workforce_total  += prod["workforce_total"]  * workers
-		if not parts.is_empty():
-			turn_recap.append(line + ", ".join(parts))
-			anything_produced = true
-	if not anything_produced:
-		turn_recap.append("No production this turn — assign workers to buildings.")
