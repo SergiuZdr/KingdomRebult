@@ -1,0 +1,38 @@
+[gd_scene format=3 uid="uid://cqughj8gbnegw"]
+
+[ext_resource type="Script" uid="uid://csovc0ktyfunw" path="res://scenes/combat/combat_scene.gd" id="1_jecyb"]
+
+[node name="CombatScene" type="Control" unique_id=83119828]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+script = ExtResource("1_jecyb")
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=278298988]
+layout_mode = 1
+offset_right = 1200.0
+offset_bottom = 720.0
+color = Color(0.101960786, 0.101960786, 0.18039216, 1)
+
+[node name="AlliesRow" type="HBoxContainer" parent="." unique_id=815750423]
+layout_mode = 0
+offset_left = 40.0
+offset_top = 280.0
+offset_right = 620.0
+offset_bottom = 430.0
+
+[node name="EnemiesRow" type="HBoxContainer" parent="." unique_id=661730547]
+layout_mode = 0
+offset_left = 660.0
+offset_top = 280.0
+offset_right = 1240.0
+offset_bottom = 430.0
+
+[node name="TurnLabel" type="Label" parent="." unique_id=1651706023]
+layout_mode = 0
+offset_left = 560.0
+offset_top = 30.0
+offset_right = 640.0
+offset_bottom = 53.0
+horizontal_alignment = 1

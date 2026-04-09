@@ -15,9 +15,39 @@ extends Resource
 @export var dexterity: int = 5
 
 # Equipment slots
-@export var weapon_1: String = ""
-@export var weapon_2: String = ""
-@export var armor: String = ""
+# Inlocuieste aceste linii in SoldierData.gd:
+@export var weapon_1: ItemData = null
+@export var weapon_2: ItemData = null
+@export var armor: ItemData = null
+
+# Adauga aceste functii:
+func get_total_power() -> int:
+	var total = power
+	if weapon_1: total += weapon_1.power_bonus
+	if weapon_2: total += weapon_2.power_bonus
+	return total
+
+func get_total_defense() -> int:
+	if armor: return armor.defense
+	return 0
+
+func get_total_speed() -> int:
+	var total = speed
+	if weapon_1: total += weapon_1.speed_bonus
+	if weapon_2: total += weapon_2.speed_bonus
+	if armor:    total += armor.speed_bonus
+	return max(1, total)
+
+func get_hit_chance_bonus() -> float:
+	var bonus = 0.0
+	if weapon_1: bonus += weapon_1.hit_chance_bonus
+	if weapon_2: bonus += weapon_2.hit_chance_bonus
+	return bonus
+
+func get_damage_range() -> Dictionary:
+	if weapon_1:
+		return {min = weapon_1.damage_min, max = weapon_1.damage_max}
+	return {min = 3, max = 8}  # unarmed
 
 # Skills
 @export var skill_passive: String = ""

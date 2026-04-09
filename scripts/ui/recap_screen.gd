@@ -39,4 +39,5 @@ func _populate(lines: Array) -> void:
 
 func _on_continue() -> void:
 	GameState.menu_open = false
+	get_tree().get_root().find_child("CityView", true, false).get_node("UI").visible = true
 	hide()

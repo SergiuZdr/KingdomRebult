@@ -18,6 +18,7 @@ config/features=PackedStringArray("4.6", "GL Compatibility")
 
 GameState="*uid://bbptki0er4tsl"
 BuildingPopup="*uid://cgcyy0m4kd4jq"
+CombatState="*uid://bl6smara6dxkq"
 
 [display]
 
@@ -27,7 +28,7 @@ window/stretch/mode="canvas_items"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/ai_assistant_hub/plugin.cfg")
+enabled=PackedStringArray()
 
 [physics]
 
