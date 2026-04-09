@@ -152,6 +152,5 @@ text = "Soldiers"
 
 [node name="CombatScene" parent="." unique_id=83119828 instance=ExtResource("4_dsn67")]
 
-[connection signal="input_event" from="Buildings/Tavern" to="Buildings/Tavern" method="_on_input_event"]
 [connection signal="pressed" from="UI/HUD/BtnEndTurn" to="." method="_on_btn_end_turn_pressed"]
 [connection signal="pressed" from="UI/HUD/Button" to="." method="_on_btn_soldiers_pressed"]
