@@ -123,7 +123,7 @@ func show_building(b_name: String, _b_desc: String) -> void:
 	current_building = b_name
 	var data := GameState.get_building_data(current_building)
 	title_label.text = b_name
-	desc_label.text = data.description if data != null else b_desc
+	desc_label.text = data.description if data != null else _b_desc
 
 	var is_tavern = (b_name == "Tavern")
 
