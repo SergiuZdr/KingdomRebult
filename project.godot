@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="KingdomRebuild"
-run/main_scene="uid://b14abxqslj1mo"
+run/main_scene="uid://cpvhhe350wkew"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 
 [autoload]
@@ -19,6 +19,8 @@ config/features=PackedStringArray("4.6", "GL Compatibility")
 GameState="*uid://bbptki0er4tsl"
 BuildingPopup="*uid://cgcyy0m4kd4jq"
 CombatState="*uid://bl6smara6dxkq"
+SaveManager="*uid://6twmscj8jrs2"
+TraitChecker="*uid://cfq2nucef3px5"
 
 [display]
 

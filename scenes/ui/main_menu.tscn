@@ -1,0 +1,102 @@
+[gd_scene format=3 uid="uid://cpvhhe350wkew"]
+
+[ext_resource type="Script" uid="uid://ddqdg2ax3afsn" path="res://scripts/ui/main_menu.gd" id="1_sl1te"]
+
+[node name="MainMenu" type="Control" unique_id=2133699844]
+layout_mode = 3
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 0
+script = ExtResource("1_sl1te")
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=2099465605]
+layout_mode = 0
+offset_left = -580.0
+offset_top = -340.0
+offset_right = 700.0
+offset_bottom = 380.0
+color = Color(0.050980393, 0.06666667, 0.09019608, 1)
+
+[node name="VBoxCenter" type="VBoxContainer" parent="." unique_id=691672226]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -213.0
+offset_top = -173.0
+offset_right = 213.0
+offset_bottom = 173.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 20
+alignment = 1
+
+[node name="TitleLabel" type="Label" parent="VBoxCenter" unique_id=1698310153]
+layout_mode = 2
+theme_override_font_sizes/font_size = 52
+text = "Kingdom Rebuild
+"
+
+[node name="SubtitleLabel" type="Label" parent="VBoxCenter" unique_id=247024214]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "The prince returns..."
+
+[node name="BtnNewGame" type="Button" parent="VBoxCenter" unique_id=1989010066]
+layout_mode = 2
+text = "New Game
+"
+
+[node name="BtnLoad" type="Button" parent="VBoxCenter" unique_id=2067457715]
+layout_mode = 2
+text = "Load Save
+"
+
+[node name="BtnQuit" type="Button" parent="VBoxCenter" unique_id=1462892219]
+layout_mode = 2
+text = "Quit Game
+"
+
+[node name="SaveSlotsPanel" type="PanelContainer" parent="." unique_id=1223949218]
+self_modulate = Color(0.07484526, 0.07484528, 0.07484526, 1)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -250.0
+offset_right = 300.0
+offset_bottom = 250.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="SaveSlotsPanel" unique_id=1241506385]
+layout_mode = 2
+
+[node name="TitleSlots" type="Label" parent="SaveSlotsPanel/VBoxContainer" unique_id=1820981130]
+layout_mode = 2
+
+[node name="Slot1" type="PanelContainer" parent="SaveSlotsPanel/VBoxContainer" unique_id=2142762079]
+layout_mode = 2
+
+[node name="Slot2" type="PanelContainer" parent="SaveSlotsPanel/VBoxContainer" unique_id=1096750156]
+layout_mode = 2
+
+[node name="Slot3" type="PanelContainer" parent="SaveSlotsPanel/VBoxContainer" unique_id=988633459]
+layout_mode = 2
+
+[node name="BtnBack" type="Button" parent="SaveSlotsPanel/VBoxContainer" unique_id=1747341628]
+layout_mode = 2

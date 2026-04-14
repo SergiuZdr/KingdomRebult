@@ -15,6 +15,15 @@ offset_right = 300.0
 offset_bottom = 575.0
 grow_horizontal = 2
 
+[node name="Background" type="ColorRect" parent="Panel"]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = 0.0
+offset_bottom = 0.0
+mouse_filter = 2
+color = Color(0.08, 0.09, 0.11, 0.96)
+
 [node name="Title" type="Label" parent="Panel" unique_id=1111572230]
 layout_mode = 1
 anchors_preset = 5
