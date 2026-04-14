@@ -1,11 +1,13 @@
 [gd_resource type="Resource" script_class="BuildingData" format=3 uid="uid://cfarm000001"]
 
-[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_farm"]
+[ext_resource type="Script" path="res://scripts/data/BuildingData.gd" id="1_farm"]
 
 [resource]
 script = ExtResource("1_farm")
-building_name = "Fermă"
-description = "Produce hrană pentru cetățeni."
+building_id = "farm"
+building_name = "Farm"
+description = "Produce food for workers and soldiers."
+category = 0
 cost_gold = 30
 cost_wood = 40
 cost_stone = 10
@@ -14,6 +16,8 @@ workforce_required = 3
 produces_gold = 0
 produces_wood = 0
 produces_stone = 0
+produces_iron = 0
+produces_steel = 0
 produces_food = 10
 produces_morale = 0
 consumes_food = 0

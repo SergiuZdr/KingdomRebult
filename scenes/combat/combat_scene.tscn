@@ -17,16 +17,16 @@ color = Color(0.101960786, 0.101960786, 0.18039216, 1)
 
 [node name="AlliesRow" type="HBoxContainer" parent="." unique_id=815750423]
 layout_mode = 0
-offset_left = 40.0
+offset_left = 25.0
 offset_top = 280.0
-offset_right = 620.0
+offset_right = 605.0
 offset_bottom = 430.0
 
 [node name="EnemiesRow" type="HBoxContainer" parent="." unique_id=661730547]
 layout_mode = 0
-offset_left = 660.0
+offset_left = 615.0
 offset_top = 280.0
-offset_right = 1240.0
+offset_right = 1171.0
 offset_bottom = 430.0
 
 [node name="TurnLabel" type="Label" parent="." unique_id=1651706023]
@@ -36,3 +36,64 @@ offset_top = 30.0
 offset_right = 640.0
 offset_bottom = 53.0
 horizontal_alignment = 1
+
+[node name="ActionPanel" type="PanelContainer" parent="." unique_id=682940595]
+custom_minimum_size = Vector2(500, 240)
+layout_mode = 0
+offset_left = 40.0
+offset_top = 430.0
+offset_right = 540.0
+offset_bottom = 670.0
+
+[node name="MarginContainer" type="MarginContainer" parent="ActionPanel" unique_id=1027553524]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ActionPanel/MarginContainer" unique_id=2005542285]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ActionLabel" type="Label" parent="ActionPanel/MarginContainer/VBoxContainer" unique_id=975344885]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Choose action:"
+
+[node name="HBoxButtons" type="HBoxContainer" parent="ActionPanel/MarginContainer/VBoxContainer" unique_id=677364909]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="BtnAttack" type="Button" parent="ActionPanel/MarginContainer/VBoxContainer/HBoxButtons" unique_id=1410042016]
+custom_minimum_size = Vector2(100, 40)
+layout_mode = 2
+text = "Attack
+"
+
+[node name="BtnDefend" type="Button" parent="ActionPanel/MarginContainer/VBoxContainer/HBoxButtons" unique_id=941875955]
+custom_minimum_size = Vector2(100, 40)
+layout_mode = 2
+text = "Defend
+"
+
+[node name="SkillButtonsContainer" type="HBoxContainer" parent="ActionPanel/MarginContainer/VBoxContainer" unique_id=664054151]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="LogPanel" type="PanelContainer" parent="." unique_id=421969438]
+custom_minimum_size = Vector2(340, 240)
+layout_mode = 0
+offset_left = 820.0
+offset_top = 430.0
+offset_right = 1160.0
+offset_bottom = 670.0
+
+[node name="ScrollContainer" type="ScrollContainer" parent="LogPanel" unique_id=128588141]
+custom_minimum_size = Vector2(320, 220)
+layout_mode = 2
+
+[node name="LogList" type="VBoxContainer" parent="LogPanel/ScrollContainer" unique_id=2141258561]
+custom_minimum_size = Vector2(310, 0)
+layout_mode = 2
+size_flags_horizontal = 3

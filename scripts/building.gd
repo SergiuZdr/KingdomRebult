@@ -17,7 +17,11 @@ func _input(event: InputEvent) -> void:
 		return
 	if not event.pressed or event.button_index != MOUSE_BUTTON_LEFT:
 		return
-	if GameState.menu_open:
+	if GameState.menu_open or CombatState.active:
+		return
+		
+	var screen_mouse_pos = get_viewport().get_mouse_position()
+	if BuildingPopup != null and BuildingPopup.blocks_screen_position(screen_mouse_pos):
 		return
 
 	var mouse_pos = get_global_mouse_position()

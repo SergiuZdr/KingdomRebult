@@ -27,15 +27,22 @@ func start_combat(enemy_wave: Array[EnemyData]) -> void:
 	combat_log.clear()
 	gold_earned = 0
 	xp_earned = 0
-	allies = GameState.soldiers.filter(func(s): return s.is_alive())
+	allies = []  # gol pana la selectie
 	enemies = enemy_wave
-	_build_turn_order()
-	combat_log.append("— Combat started —")
+
+func begin_after_selection() -> void:
+	if enemies.is_empty():
+		return
 	emit_signal("combat_started")
-	_next_turn()
+	await get_tree().process_frame
+	_build_turn_order()
+	await _next_turn()
 
 func _build_turn_order() -> void:
 	turn_order.clear()
+	for s in allies:
+		for skill_id in s.active_skill_cooldowns:
+			s.active_skill_cooldowns[skill_id] = max(0, s.active_skill_cooldowns[skill_id] - 1)
 	var all = []
 	for a in allies:
 		all.append({unit = a, is_ally = true, speed_roll = a.speed + randi_range(0, 3)})
@@ -62,45 +69,64 @@ func _enemy_act(enemy: EnemyData) -> void:
 		var raw_dmg = enemy.power + randi_range(-3, 3)
 		var final_dmg = max(1, raw_dmg - target.get_total_defense())
 		target.hp_current = max(0, target.hp_current - final_dmg)
+		target.combat_damage_taken += final_dmg  
+	# Verifica near death
+		if float(target.hp_current) / float(target.hp_max) < 0.15:
+			target.combat_survived_near_death = true
 		combat_log.append("%s attacks %s for %d dmg" % [enemy.enemy_name, target.soldier_name, final_dmg])
 	else:
 		combat_log.append("%s attacks %s — MISS" % [enemy.enemy_name, target.soldier_name])
-
 	emit_signal("unit_acted", combat_log.back())
 	_check_combat_end()
 	if active:
 		current_unit_index += 1
 		await _next_turn()
+		
 func player_act(action: String, target) -> void:
 	if current_unit_index >= turn_order.size():
 		return
 	var current_entry = turn_order[current_unit_index]
 	if not current_entry.is_ally:
 		return
-
 	var actor: SoldierData = current_entry.unit
 
 	match action:
 		"Attack":
 			if target == null or not target is EnemyData:
 				return
-			# Foloseste damage range din arma
 			var dmg_range = actor.get_damage_range()
 			var base_dmg = randi_range(dmg_range.min, dmg_range.max)
 			var result = _calculate_hit_soldier(actor, target)
 			if result.hit:
-				# Scade defense-ul armurii
-				var final_dmg = max(1, base_dmg)
+				var final_dmg = max(1, base_dmg + actor.get_total_power())
 				target.hp_current = max(0, target.hp_current - final_dmg)
-				combat_log.append("%s attacks %s for %d dmg" % [
-					actor.soldier_name, target.enemy_name, final_dmg
+				actor.combat_damage_dealt += final_dmg
+				if target.hp_current > 0:
+					combat_log.append("%s attacks %s for %d dmg" % [
+						actor.soldier_name, target.enemy_name, final_dmg
 					])
+				else:
+					actor.combat_kills += 1
+					combat_log.append("%s killed %s dealing %d dmg" % [
+						actor.soldier_name, target.enemy_name, final_dmg
+				])
 			else:
 				combat_log.append("%s attacks %s — MISS" % [
 					actor.soldier_name, target.enemy_name
 				])
+
 		"Defend":
-			combat_log.append("%s takes a defensive stance (+3 DEF this round)" % actor.soldier_name)
+			combat_log.append("%s takes a defensive stance" % actor.soldier_name)
+
+		"Skill":
+			# target e un Dictionary {skill, enemy_target}
+			if target == null:
+				return
+			var skill: SkillData = target.get("skill")
+			var enemy_target = target.get("enemy_target")
+			if skill == null or enemy_target == null:
+				return
+			_use_active_skill(actor, skill, enemy_target)
 
 	emit_signal("unit_acted", combat_log.back())
 	_check_combat_end()
@@ -108,6 +134,33 @@ func player_act(action: String, target) -> void:
 		current_unit_index += 1
 		await _next_turn()
 
+func _use_active_skill(actor: SoldierData, skill: SkillData, target: EnemyData) -> void:
+	# Verifica cooldown
+	if actor.active_skill_cooldowns.get(skill.skill_id, 0) > 0:
+		combat_log.append("%s — %s is on cooldown!" % [actor.soldier_name, skill.skill_name])
+		return
+
+	var dmg_range = actor.get_damage_range()
+	var base_dmg = randi_range(dmg_range.min, dmg_range.max)
+	var final_dmg = max(1, int(base_dmg * skill.damage_multiplier) + actor.get_total_power())
+
+	var hit_chance = 0.7 + actor.get_hit_chance_bonus() + skill.hit_chance_bonus
+	hit_chance = clamp(hit_chance, 0.15, 0.99)
+
+	if randf() < hit_chance:
+		target.hp_current = max(0, target.hp_current - final_dmg)
+		actor.combat_damage_dealt += final_dmg
+		if target.hp_current <= 0:
+			actor.combat_kills += 1
+		combat_log.append("%s uses %s on %s for %d dmg!" % [
+			actor.soldier_name, skill.skill_name, target.enemy_name, final_dmg
+		])
+	else:
+		combat_log.append("%s uses %s — MISS!" % [actor.soldier_name, skill.skill_name])
+
+	# Seteaza cooldown
+	actor.active_skill_cooldowns[skill.skill_id] = skill.cooldown_turns
+	
 func _calculate_hit_soldier(actor: SoldierData, target) -> Dictionary:
 	var hit_chance = 0.7
 	hit_chance += (actor.get_total_speed() - target.dexterity) * 0.03
@@ -164,10 +217,21 @@ func _end_combat(victory: bool) -> void:
 		for e in enemies:
 			gold_earned += e.gold_reward
 			xp_earned += e.xp_reward
-		GameState.gold += gold_earned
+		GameState.add_post_turn_resource_delta("Gold", gold_earned)
 		for s in allies:
-			s.add_xp(xp_earned)
+			TraitChecker.check_combat_traits(s)
+			s.reset_combat_stats() 
+			if s.is_alive():
+				s.add_xp(xp_earned)
+		GameState.turn_recap.append("")
+		GameState.turn_recap.append("Phase: Battle")
+		GameState.turn_recap.append("Victory: +%d Gold | +%d XP" % [gold_earned, xp_earned])
 		combat_log.append("— Victory! +%d Gold, +%d XP —" % [gold_earned, xp_earned])
+		GameState.emit_signal("resources_changed")
+		GameState.emit_signal("soldiers_changed")
 	else:
+		GameState.turn_recap.append("")
+		GameState.turn_recap.append("Phase: Battle")
+		GameState.turn_recap.append("Defeat...")
 		combat_log.append("— Defeat... —")
 	emit_signal("combat_ended", victory)

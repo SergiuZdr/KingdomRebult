@@ -1,21 +1,19 @@
 [gd_resource type="Resource" script_class="BuildingData" format=3 uid="uid://cbarracks001"]
 
-[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_barracks"]
+[ext_resource type="Script" uid="uid://c2t8u1irocabi" path="res://scripts/data/BuildingData.gd" id="1_barracks"]
 
 [resource]
 script = ExtResource("1_barracks")
-building_name = "Cazarmă"
-description = "Antrenează soldați pentru apărare."
+building_id = "barracks"
+building_name = "Barracks"
+description = "Military support building for soldier capacity, readiness, and recovery."
+category = 2
 cost_gold = 150
 cost_wood = 100
 cost_stone = 80
 build_time = 3
 workforce_required = 2
-produces_gold = 0
-produces_wood = 0
-produces_stone = 0
-produces_food = 0
-produces_morale = -5
-consumes_food = 5
-increases_population = 0
 max_level = 2
+consumes_food = 5
+produces_morale = 2
+soldier_capacity_bonus = 2

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/BuildingData.gd" id="1_steel_forge"]
+
+[resource]
+script = ExtResource("1_steel_forge")
+building_id = "steel_forge"
+building_name = "Steel Forge"
+description = "Turn iron into steel for advanced equipment and military growth."
+category = 1
+cost_gold = 120
+cost_wood = 60
+cost_stone = 40
+build_time = 2
+workforce_required = 1
+max_level = 3
+produces_iron = -9
+produces_steel = 3

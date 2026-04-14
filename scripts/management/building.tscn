@@ -11,6 +11,9 @@ size = Vector2(114, 138)
 [node name="Building" type="Area2D" unique_id=1982720633]
 position = Vector2(60, 78)
 script = ExtResource("1_055sl")
+building_name = null
+building_description = null
+is_built = null
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=2101352819]
 position = Vector2(-3.0000017, 0.050841868)

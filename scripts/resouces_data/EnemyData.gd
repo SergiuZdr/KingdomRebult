@@ -63,16 +63,32 @@ static func make_random_wave(difficulty: int) -> Array[EnemyData]:
 	var wave: Array[EnemyData] = []
 	var pool = ["goblin", "goblin", "wolf", "orc", "soldier"]
 	if difficulty <= 1:
-		pool = ["goblin", "goblin", "goblin", "wolf"]
+		pool = ["goblin", "goblin", "goblin", "wolf", "goblin"]
 	elif difficulty <= 3:
 		pool = ["goblin", "wolf", "orc", "goblin", "wolf"]
 	else:
 		pool = ["orc", "soldier", "wolf", "orc", "soldier"]
 
+	# Numara aparitiile fiecarui tip
+	var type_counts: Dictionary = {}
 	for type in pool:
+		type_counts[type] = type_counts.get(type, 0) + 1
+
+	# Genereaza cu nume unice doar pentru tipurile care apar de mai multe ori
+	var type_index: Dictionary = {}
+	for type in pool:
+		var enemy: EnemyData
 		match type:
-			"goblin": wave.append(make_goblin())
-			"orc":    wave.append(make_orc())
-			"wolf":   wave.append(make_wolf())
-			"soldier": wave.append(make_enemy_soldier())
+			"goblin":  enemy = make_goblin()
+			"orc":     enemy = make_orc()
+			"wolf":    enemy = make_wolf()
+			"soldier": enemy = make_enemy_soldier()
+			_:         enemy = make_goblin()
+
+		if type_counts[type] > 1:
+			type_index[type] = type_index.get(type, 0) + 1
+			enemy.enemy_name = "%s #%d" % [enemy.enemy_name, type_index[type]]
+
+		wave.append(enemy)
+
 	return wave

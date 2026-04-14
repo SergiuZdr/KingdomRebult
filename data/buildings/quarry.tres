@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/BuildingData.gd" id="1_quarry"]
+
+[resource]
+script = ExtResource("1_quarry")
+building_id = "quarry"
+building_name = "Quarry"
+description = "Assign workers to gather stone for construction and processing."
+category = 0
+cost_gold = 30
+cost_wood = 10
+cost_stone = 0
+build_time = 1
+workforce_required = 1
+max_level = 3
+produces_stone = 8

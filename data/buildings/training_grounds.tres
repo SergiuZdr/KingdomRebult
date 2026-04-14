@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/BuildingData.gd" id="1_training_grounds"]
+
+[resource]
+script = ExtResource("1_training_grounds")
+building_id = "training_grounds"
+building_name = "Training Grounds"
+description = "Assign trainers to improve every living soldier each turn."
+category = 2
+cost_gold = 120
+cost_wood = 80
+cost_stone = 40
+build_time = 2
+workforce_required = 1
+max_level = 3
+training_xp_per_worker = 10

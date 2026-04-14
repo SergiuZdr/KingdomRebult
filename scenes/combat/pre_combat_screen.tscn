@@ -1,0 +1,103 @@
+[gd_scene format=3 uid="uid://dj3ergoe6l55y"]
+
+[ext_resource type="Script" uid="uid://ceqhx7ymuin1j" path="res://scripts/combat/pre_combat_screen.gd" id="1_ea8bj"]
+
+[node name="PreCombatScreen" type="Control" unique_id=807255576]
+clip_contents = true
+custom_minimum_size = Vector2(1280, 720)
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 590.0
+offset_top = 360.0
+offset_right = 670.0
+offset_bottom = 360.0
+grow_horizontal = 2
+grow_vertical = 2
+pivot_offset = Vector2(590, 360)
+size_flags_horizontal = 4
+size_flags_vertical = 4
+script = ExtResource("1_ea8bj")
+metadata/_edit_use_anchors_ = true
+
+[node name="Background" type="ColorRect" parent="." unique_id=129272295]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -640.0
+offset_top = -360.0
+offset_right = 640.0
+offset_bottom = 360.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.050980393, 0.06666667, 0.09019608, 1)
+
+[node name="Panel" type="PanelContainer" parent="." unique_id=206364703]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -430.0
+offset_top = -283.0
+offset_right = 470.0
+offset_bottom = 317.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="Panel" unique_id=2045696520]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 20
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel/MarginContainer" unique_id=585206855]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="TitleLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer" unique_id=1850357550]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Prepare for Battle"
+horizontal_alignment = 1
+
+[node name="SubtitleLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer" unique_id=880812051]
+layout_mode = 2
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="HSeparator" type="HSeparator" parent="Panel/MarginContainer/VBoxContainer" unique_id=189072012]
+layout_mode = 2
+
+[node name="ScrollContainer" type="ScrollContainer" parent="Panel/MarginContainer/VBoxContainer" unique_id=1647990056]
+custom_minimum_size = Vector2(0, 360)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="SoldierList" type="VBoxContainer" parent="Panel/MarginContainer/VBoxContainer/ScrollContainer" unique_id=951153278]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="HSeparator2" type="HSeparator" parent="Panel/MarginContainer/VBoxContainer" unique_id=274349106]
+layout_mode = 2
+
+[node name="Footer" type="HBoxContainer" parent="Panel/MarginContainer/VBoxContainer" unique_id=305270144]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="SelectedCount" type="Label" parent="Panel/MarginContainer/VBoxContainer/Footer" unique_id=1692916944]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 16
+text = "Selected 0 / 5"
+
+[node name="BtnFight" type="Button" parent="Panel/MarginContainer/VBoxContainer/Footer" unique_id=1377370001]
+layout_mode = 2
+text = "Fight
+"

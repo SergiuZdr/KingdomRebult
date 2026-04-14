@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/BuildingData.gd" id="1_weapon_forge"]
+
+[resource]
+script = ExtResource("1_weapon_forge")
+building_id = "weapon_forge"
+building_name = "Weapon Forge"
+description = "Consume steel and gold to keep military production running."
+category = 2
+cost_gold = 140
+cost_wood = 70
+cost_stone = 50
+build_time = 2
+workforce_required = 1
+max_level = 3
+produces_gold = -10
+produces_steel = -2

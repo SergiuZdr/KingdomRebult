@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/BuildingData.gd" id="1_iron_mine"]
+
+[resource]
+script = ExtResource("1_iron_mine")
+building_id = "iron_mine"
+building_name = "Iron Mine"
+description = "Assign workers to extract iron ore for steel and weapons."
+category = 5
+cost_gold = 80
+cost_wood = 60
+cost_stone = 0
+build_time = 2
+workforce_required = 1
+max_level = 3
+produces_iron = 6

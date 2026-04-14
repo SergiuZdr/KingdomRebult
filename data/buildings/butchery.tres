@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/BuildingData.gd" id="1_butchery"]
+
+[resource]
+script = ExtResource("1_butchery")
+building_id = "butchery"
+building_name = "Butchery"
+description = "Convert food supply into gold through processed goods."
+category = 1
+cost_gold = 90
+cost_wood = 40
+cost_stone = 20
+build_time = 2
+workforce_required = 1
+max_level = 3
+produces_gold = 15
+produces_food = -5
