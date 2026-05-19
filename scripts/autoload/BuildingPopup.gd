@@ -24,6 +24,7 @@ var market_scroll: ScrollContainer
 var market_list: VBoxContainer
 
 var rebuild_section: VBoxContainer
+var building_img: TextureRect
 var house_section: VBoxContainer
 
 var current_building: String = ""
@@ -45,6 +46,14 @@ func _build_popup() -> void:
 			get_viewport().set_input_as_handled()
 	)
 	add_child(popup_panel)
+
+	building_img = TextureRect.new()
+	building_img.position = Vector2(390, 12)
+	building_img.size = Vector2(110, 90)
+	building_img.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	building_img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	building_img.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	popup_panel.add_child(building_img)
 
 	title_label = Label.new()
 	title_label.position = Vector2(20, 15)
@@ -210,6 +219,8 @@ func show_building(b_name: String, _b_desc: String) -> void:
 	current_building = b_name
 	var data = GameState.get_building_data(current_building)
 	title_label.text = b_name
+	building_img.texture = _get_building_texture(b_name)
+	building_img.visible = building_img.texture != null
 	desc_label.text = data.description if data != null else _b_desc
 
 	var is_built = GameState.is_building_built(b_name)
@@ -549,6 +560,27 @@ func _on_remove_worker() -> void:
 func _on_market_buy_pressed(item: ItemData) -> void:
 	if GameState.buy_market_item(item):
 		_refresh_market()
+
+func _get_building_texture(b_name: String) -> Texture2D:
+	const PATHS: Dictionary = {
+		"Tavern": "res://Downloaded Game Assets/Constructions/Medieval House Exteriors/Tavern.png",
+		"Market": "res://Downloaded Game Assets/Constructions/Medieval House Exteriors/market stall1.png",
+		"House": "res://Downloaded Game Assets/Constructions/Medieval House Exteriors/House.png",
+		"Barracks": "res://Downloaded Game Assets/Constructions/Medieval House Exteriors/Stable or Storage.png",
+		"Training Grounds": "res://Downloaded Game Assets/Constructions/Medieval House Exteriors/Stable or Storage.png",
+		"Weapon Forge": "res://Downloaded Game Assets/Constructions/Generic Exterior/Pixel Art Furnace and Sawmill.png",
+		"Steel Forge": "res://Downloaded Game Assets/Constructions/Generic Exterior/Pixel Art Furnace and Sawmill.png",
+		"Butchery": "res://Downloaded Game Assets/Constructions/Generic Exterior/Cooking area.png",
+		"Farm": "res://Downloaded Game Assets/Decor&WorldItems/Farming Tiles and Crops/GandalfHardcore Farming Tiles and Crops 32x32.png",
+		"Forest": "res://Downloaded Game Assets/Decor&WorldItems/Generic Decor/Pine forest sheet.png",
+		"Iron Mine": "res://Downloaded Game Assets/Decor&WorldItems/Generic Decor/Ores.png",
+		"Mine": "res://Downloaded Game Assets/Decor&WorldItems/Generic Decor/Ores.png",
+		"Quarry": "res://Downloaded Game Assets/Decor&WorldItems/Generic Decor/Ores.png",
+	}
+	var path = PATHS.get(b_name, "")
+	if path == "":
+		return null
+	return load(path) as Texture2D
 
 func _close_popup() -> void:
 	GameState.menu_open = reopen_menu_on_close

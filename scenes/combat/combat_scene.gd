@@ -112,12 +112,46 @@ func _build_units() -> void:
 		enemies_row.add_child(card)
 		enemy_cards.append(card)
 
+func _get_unit_portrait(unit, is_ally: bool) -> Texture2D:
+	var path := ""
+	if is_ally:
+		match (unit as SoldierData).soldier_class:
+			"Warrior": path = "res://Downloaded Game Assets/Characters/Warrior/GandalfHardcore Warrior.png"
+			"Archer":  path = "res://Downloaded Game Assets/Characters/Archer/GandalfHardcore Archer sheet.png"
+			"Mage":    path = "res://Downloaded Game Assets/Characters/Wizard/Purple Wizard sheet.png"
+			"Knight":  path = "res://Downloaded Game Assets/Characters/Knight Run and Portrait/Knight Portrait 64x64.png"
+			"Rogue":   path = "res://Downloaded Game Assets/Characters/Archer/GandalfHardcore Archer black sheet.png"
+	else:
+		var enemy := unit as EnemyData
+		if enemy.hp_max > 100:
+			path = "res://Downloaded Game Assets/Characters/ENEMIES/Orc sheet.png"
+		else:
+			var base = enemy.enemy_name.split(" ")[0]
+			match base:
+				"Goblin": path = "res://Downloaded Game Assets/Characters/ENEMIES/Goblins/Portrait 64x64.png"
+				"Orc":    path = "res://Downloaded Game Assets/Characters/ENEMIES/Orc sheet.png"
+				"Wolf":   path = "res://Downloaded Game Assets/Characters/ENEMIES/Goblins/Portrait 64x64.png"
+				"Enemy":  path = "res://Downloaded Game Assets/Characters/Knight Run and Portrait/Knight Portrait 64x64.png"
+	if path == "":
+		return null
+	return load(path) as Texture2D
+
 func _make_unit_card(unit, is_ally: bool) -> PanelContainer:
 	var panel = PanelContainer.new()
-	panel.custom_minimum_size = Vector2(110, 130)
+	panel.custom_minimum_size = Vector2(110, 160)
 
 	var vbox = VBoxContainer.new()
 	panel.add_child(vbox)
+
+	var portrait_tex = _get_unit_portrait(unit, is_ally)
+	if portrait_tex != null:
+		var portrait = TextureRect.new()
+		portrait.texture = portrait_tex
+		portrait.custom_minimum_size = Vector2(90, 56)
+		portrait.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vbox.add_child(portrait)
 
 	var name_lbl = Label.new()
 	name_lbl.text = unit.soldier_name if is_ally else unit.enemy_name

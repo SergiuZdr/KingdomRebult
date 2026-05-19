@@ -453,6 +453,17 @@ func _make_building_row(b_name: String) -> PanelContainer:
 	hbox.add_theme_constant_override("separation", 14)
 	panel.add_child(hbox)
 
+	# Building image icon
+	var bld_texture = _get_building_texture_for_overview(b_name)
+	if bld_texture != null:
+		var img = TextureRect.new()
+		img.texture = bld_texture
+		img.custom_minimum_size = Vector2(48, 48)
+		img.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		img.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hbox.add_child(img)
+
 	# Status icon
 	var status_lbl = Label.new()
 	status_lbl.text = "[OK]" if is_built else "[RUINS]"
@@ -506,6 +517,28 @@ func _make_building_row(b_name: String) -> PanelContainer:
 	hbox.add_child(btn)
 
 	return panel
+
+func _get_building_texture_for_overview(b_name: String) -> Texture2D:
+	const PATHS: Dictionary = {
+		"Tavern": "res://Downloaded Game Assets/Constructions/Medieval House Exteriors/Tavern.png",
+		"Market": "res://Downloaded Game Assets/Constructions/Medieval House Exteriors/market stall1.png",
+		"House": "res://Downloaded Game Assets/Constructions/Medieval House Exteriors/House.png",
+		"Barracks": "res://Downloaded Game Assets/Constructions/Medieval House Exteriors/Stable or Storage.png",
+		"Training Grounds": "res://Downloaded Game Assets/Constructions/Medieval House Exteriors/Stable or Storage.png",
+		"Weapon Forge": "res://Downloaded Game Assets/Constructions/Generic Exterior/Pixel Art Furnace and Sawmill.png",
+		"Steel Forge": "res://Downloaded Game Assets/Constructions/Generic Exterior/Pixel Art Furnace and Sawmill.png",
+		"Butchery": "res://Downloaded Game Assets/Constructions/Generic Exterior/Cooking area.png",
+		"Farm": "res://Downloaded Game Assets/Decor&WorldItems/Farming Tiles and Crops/GandalfHardcore Farming Tiles and Crops 32x32.png",
+		"Forest": "res://Downloaded Game Assets/Decor&WorldItems/Generic Decor/Pine forest sheet.png",
+		"Iron Mine": "res://Downloaded Game Assets/Decor&WorldItems/Generic Decor/Ores.png",
+		"Mine": "res://Downloaded Game Assets/Decor&WorldItems/Generic Decor/Ores.png",
+		"Quarry": "res://Downloaded Game Assets/Decor&WorldItems/Generic Decor/Ores.png",
+	}
+	var path = PATHS.get(b_name, "")
+	if path == "":
+		return null
+	return load(path) as Texture2D
+
 func _on_btn_save_pressed() -> void:
 	_show_save_panel()
 
