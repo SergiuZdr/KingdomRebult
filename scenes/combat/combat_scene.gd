@@ -906,7 +906,7 @@ func _run_city_defense_replay_events(events: Array, skip_btn: Button) -> void:
 					break
 			_refresh_all_cards()
 
-			_add_log("%s → %s  [-%d]" % [attacker, target_name, dmg],
+			await _add_log("%s → %s  [-%d]" % [attacker, target_name, dmg],
 				Color(0.5, 0.9, 0.5) if is_ally_att else Color(0.9, 0.5, 0.4))
 
 		elif ev.get("type") == "death":
@@ -920,7 +920,7 @@ func _run_city_defense_replay_events(events: Array, skip_btn: Button) -> void:
 				if uname == unit_name and unit_combat_cards.has(unit):
 					unit_combat_cards[unit].modulate = Color(0.4, 0.4, 0.4)
 					break
-			_add_log("✗ %s defeated!" % unit_name, Color(0.85, 0.3, 0.3))
+			await _add_log("✗ %s defeated!" % unit_name, Color(0.85, 0.3, 0.3))
 
 		await get_tree().create_timer(0.5).timeout
 
@@ -928,6 +928,6 @@ func _run_city_defense_replay_events(events: Array, skip_btn: Button) -> void:
 		return
 
 	turn_label.text = "— Replay Complete —"
-	_add_log("— Replay Complete —", Color(0.85, 0.82, 0.5))
+	await _add_log("— Replay Complete —", Color(0.85, 0.82, 0.5))
 	if is_instance_valid(skip_btn):
 		skip_btn.text = "Continue"

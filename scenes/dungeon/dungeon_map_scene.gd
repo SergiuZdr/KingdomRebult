@@ -223,10 +223,12 @@ func _on_dungeon_combat_ended(victory: bool) -> void:
 			DungeonState.soldier_died_in_dungeon(s)
 			_add_log_entry("%s has fallen permanently." % s.soldier_name)
 		if room.room_type == DungeonRoom.RoomType.BOSS:
-			_add_log_entry("BOSS CLEARED! Dungeon Level %d complete." % DungeonState.dungeon_level)
-			_add_log_entry("Explore remaining rooms or return to the city when ready.")
+			var completed_level := DungeonState.dungeon_level
 			DungeonState.dungeon_level += 1
+			_add_log_entry("BOSS CLEARED! Dungeon Level %d complete." % completed_level)
+			_add_log_entry("Explore remaining rooms or return to the city when ready.")
 			DungeonState.log_event("boss_cleared", "Boss defeated! Dungeon Level %d unlocked." % DungeonState.dungeon_level)
+			_title_label.text = "Dungeon — Level %d (Complete)" % completed_level
 			_render_map()
 			_refresh_info()
 			_refresh_soldiers_label()
@@ -273,7 +275,7 @@ func _handle_empty_room(room: DungeonRoom) -> void:
 			if s.is_alive():
 				var dmg = int(s.hp_max * dmg_pct)
 				s.hp_current = max(1, s.hp_current - dmg)
-		var dmg_msg = "Trap! All soldiers lost ~%d%% HP." % int(dmg_pct * 100)
+		var dmg_msg = "Trap! All soldiers lost ~%d%% HP." % int(dmg_pct * 100.0)
 		DungeonState.log_event("trap", dmg_msg)
 		_add_log_entry(dmg_msg)
 	elif roll < 0.55:

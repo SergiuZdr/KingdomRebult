@@ -541,9 +541,6 @@ func _refresh_market() -> void:
 			lock_label.add_theme_color_override("font_color", Color(0.92, 0.72, 0.45, 1.0))
 			wrapper.add_child(lock_label)
 
-func _get_recruit_cost() -> int:
-	return GameState.get_recruit_cost()
-
 func _on_add_worker() -> void:
 	GameState.assign_worker(current_building, 1)
 	_refresh()
