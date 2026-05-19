@@ -1,6 +1,14 @@
 # GameState.gd
 extends Node
 
+# --- CONSTANTE ---
+const SOLDIER_FOOD_UPKEEP: int = 2
+const MORALE_PENALTY_PER_UNFED_SOLDIER: int = 5
+const HOUSE_RECRUIT_GOLD_COST: int = 25
+const HOUSE_RECRUIT_FOOD_COST: int = 8
+const HOUSE_MAX_RECRUITS_PER_TURN: int = 2
+const BASE_WORKFORCE_CAP: int = 10
+
 # --- RESURSE ---
 var gold: int = 500
 var wood: int = 0
@@ -11,6 +19,7 @@ var food: int = 0
 var morale: int = 100
 var workforce_total: int = 10
 var workforce_available: int = 10
+var workforce_cap: int = BASE_WORKFORCE_CAP
 
 # --- SOLDAȚI ---
 var soldiers: Array[SoldierData] = []
@@ -28,6 +37,8 @@ var available_items: Array[ItemData] = []
 var owned_items: Array[ItemData] = []
 var building_definitions: Dictionary = {}
 var building_workers: Dictionary = {}
+var building_built_status: Dictionary = {}
+var house_recruits_this_turn: int = 0
 
 # --- PROGRES ---
 var current_turn: int = 0
@@ -37,6 +48,10 @@ var base_battle_interval: int = 2
 var pending_enemy_wave: Array[EnemyData] = []
 var pending_battle_source: String = "Scheduled Wave"
 var last_turn_resource_deltas: Dictionary = {}
+var _pending_event_recap: Array[String] = []
+var _pending_event_data: Dictionary = {}
+var _pending_city_defense_result: Dictionary = {}
+var _city_defense_replay_events: Array = []
 
 func _ready() -> void:
 	_load_building_definitions()
@@ -67,6 +82,8 @@ func _load_building_definitions() -> void:
 
 	for building_name in building_definitions.keys():
 		building_workers[building_name] = existing_workers.get(building_name, 0)
+		if not building_built_status.has(building_name):
+			building_built_status[building_name] = building_definitions[building_name].starts_built
 
 func _populate_shop() -> void:
 	available_items = [
@@ -185,6 +202,65 @@ func equip_owned_item(soldier: SoldierData, item: ItemData, slot: String) -> boo
 	emit_signal("soldiers_changed")
 	return true
 
+func can_recruit_worker() -> Dictionary:
+	if not is_building_built("House"):
+		return {can = false, reason = "House not built."}
+	if workforce_total >= workforce_cap:
+		return {can = false, reason = "Workforce cap reached (%d/%d). Build more Houses to expand." % [workforce_total, workforce_cap]}
+	if house_recruits_this_turn >= HOUSE_MAX_RECRUITS_PER_TURN:
+		return {can = false, reason = "Recruit limit reached (%d/%d this turn)." % [house_recruits_this_turn, HOUSE_MAX_RECRUITS_PER_TURN]}
+	if gold < HOUSE_RECRUIT_GOLD_COST:
+		return {can = false, reason = "Need %d Gold (have %d)." % [HOUSE_RECRUIT_GOLD_COST, gold]}
+	if food < HOUSE_RECRUIT_FOOD_COST:
+		return {can = false, reason = "Need %d Food (have %d)." % [HOUSE_RECRUIT_FOOD_COST, food]}
+	return {can = true, reason = ""}
+
+func recruit_worker() -> bool:
+	var check = can_recruit_worker()
+	if not check.can:
+		return false
+	gold -= HOUSE_RECRUIT_GOLD_COST
+	food -= HOUSE_RECRUIT_FOOD_COST
+	workforce_total += 1
+	workforce_available += 1
+	house_recruits_this_turn += 1
+	emit_signal("resources_changed")
+	return true
+
+func is_building_built(building_name: String) -> bool:
+	return building_built_status.get(building_name, false)
+
+func can_rebuild(building_name: String) -> Dictionary:
+	var data = get_building_data(building_name)
+	if data == null:
+		return {can = false, missing = "No building data"}
+	var missing: Array[String] = []
+	if gold < data.cost_gold:
+		missing.append("%d Gold (have %d)" % [data.cost_gold, gold])
+	if wood < data.cost_wood:
+		missing.append("%d Wood (have %d)" % [data.cost_wood, wood])
+	if stone < data.cost_stone:
+		missing.append("%d Stone (have %d)" % [data.cost_stone, stone])
+	return {can = missing.is_empty(), missing = ", ".join(missing)}
+
+func rebuild_building(building_name: String) -> bool:
+	if is_building_built(building_name):
+		return false
+	var data = get_building_data(building_name)
+	if data == null:
+		return false
+	var check = can_rebuild(building_name)
+	if not check.can:
+		return false
+	gold -= data.cost_gold
+	wood -= data.cost_wood
+	stone -= data.cost_stone
+	building_built_status[building_name] = true
+	if data.increases_population > 0:
+		workforce_cap += data.increases_population
+	emit_signal("resources_changed")
+	return true
+
 func get_building_data(building_name: String) -> BuildingData:
 	return building_definitions.get(building_name) as BuildingData
 
@@ -200,7 +276,6 @@ func refresh_tavern_roster() -> void:
 	tavern_roster.clear()
 	var count = randi_range(3, 5)
 	var classes = ["Warrior", "Archer", "Rogue", "Mage", "Knight"]
-	var innkeepers = building_workers.get("Tavern", 0)
 	var stat_bonus = tavern_workers_last_turn * 5
 
 	for i in count:
@@ -324,8 +399,11 @@ signal recap_ready
 signal combat_started_from_turn
 signal threat_updated
 
+
 func assign_worker(building_name: String, amount: int) -> bool:
 	if not building_workers.has(building_name):
+		return false
+	if not is_building_built(building_name):
 		return false
 
 	var current = building_workers.get(building_name, 0)
@@ -339,9 +417,7 @@ func assign_worker(building_name: String, amount: int) -> bool:
 		var data = get_building_data("Barracks")
 		if data != null:
 			var base_capacity = max_soldiers
-			var capacity_after = base_capacity
-			if new_amount > 0:
-				capacity_after = base_capacity + data.soldier_capacity_bonus
+			var capacity_after = base_capacity + data.soldier_capacity_bonus * new_amount
 			if soldiers.size() > capacity_after:
 				return false
 
@@ -357,19 +433,22 @@ func get_turns_until_next_battle() -> int:
 func get_threat_forecast_text() -> String:
 	if pending_enemy_wave.is_empty():
 		return "Threat: None scheduled"
-	return "Threat: %s in %d turn%s | Difficulty %d | Enemies %d" % [
+	var is_boss = combat_difficulty > 0 and combat_difficulty % 5 == 0
+	var threat_type = " [BOSS WAVE!]" if is_boss else ""
+	return "Threat: %s in %d turn%s | Difficulty %d | Enemies %d%s" % [
 		pending_battle_source,
 		turns_until_next_battle,
 		"" if turns_until_next_battle == 1 else "s",
 		combat_difficulty,
-		pending_enemy_wave.size()
+		pending_enemy_wave.size(),
+		threat_type
 	]
 
 func _schedule_next_battle(initial_schedule: bool = false) -> void:
 	if initial_schedule:
 		combat_difficulty = 1
 	else:
-		combat_difficulty = max(1, int(current_turn / 2) + 1)
+		combat_difficulty = max(1, int(float(current_turn) / 2.0) + 1)
 
 	turns_until_next_battle = base_battle_interval
 	pending_enemy_wave = EnemyData.make_random_wave(combat_difficulty)
@@ -392,7 +471,8 @@ func _start_pending_battle() -> void:
 	if pending_enemy_wave.is_empty():
 		_schedule_next_battle()
 
-	var wave = pending_enemy_wave.duplicate()
+	var wave: Array[EnemyData] = []
+	wave.assign(pending_enemy_wave)
 	turn_recap.append("%s arrived! Difficulty %d, %d enemies." % [
 		pending_battle_source,
 		combat_difficulty,
@@ -404,33 +484,292 @@ func _start_pending_battle() -> void:
 	emit_signal("combat_started_from_turn")
 
 
+# --- DUNGEON INTEGRATION ---
+signal dungeon_expedition_ready  # emitted after end_turn phases so City_view can open dungeon
+
 var tavern_workers_last_turn: int = 0
 func end_turn() -> void:
+	# Start dungeon expedition if soldiers were staged
+	if not DungeonState.pending_soldiers.is_empty():
+		DungeonState.start_expedition()
+
 	tavern_workers_last_turn = building_workers.get("Tavern", 0)
 	var resource_snapshot = _capture_resource_snapshot()
 	turn_recap.clear()
 	turn_recap.append("=== Turn %d Complete ===" % current_turn)
-	turn_recap.append("Production:")
-	_process_production()
-	turn_recap.append("")
-	turn_recap.append("Training:")
-	_process_training()
-	turn_recap.append("")
+
+	# Show events deferred from previous turn
+	if not _pending_event_recap.is_empty():
+		for line in _pending_event_recap:
+			turn_recap.append(line)
+		_pending_event_recap.clear()
+
+	_phase_production()
+	_phase_training()
+	_phase_upkeep()
+	_phase_events()
+
 	_build_resource_delta_summary(resource_snapshot)
-	turn_recap.append("")
 	current_turn += 1
 
 	var battle_starts_now = _advance_threat_schedule()
 	if battle_starts_now:
-		_start_pending_battle()
+		if DungeonState.active:
+			_auto_resolve_city_defense()
+		else:
+			_start_pending_battle()
 	else:
+		turn_recap.append("")
 		turn_recap.append(get_threat_forecast_text())
-		emit_signal("recap_ready")
 		emit_signal("turn_ended", current_turn)
-	tavern_workers_last_turn = building_workers.get("Tavern", 0)
+		if not DungeonState.active:
+			emit_signal("recap_ready")
+		else:
+			# Dungeon is active and no recap shown — clear pending event data so it
+			# does not fire a stale popup on the next recap.
+			_pending_event_data.clear()
+	house_recruits_this_turn = 0
 	refresh_tavern_roster()
 	emit_signal("resources_changed")
 	emit_signal("threat_updated")
+
+	# Always open dungeon if active (city defense result shown after exit)
+	if DungeonState.active:
+		emit_signal("dungeon_expedition_ready")
+
+func _auto_resolve_city_defense() -> void:
+	var wave: Array[EnemyData] = []
+	wave.assign(pending_enemy_wave)
+	var wave_names: Array[String] = []
+	for e in wave:
+		wave_names.append(e.enemy_name)
+	var defenders = soldiers.filter(func(s): return s.is_alive())
+
+	turn_recap.append("")
+	turn_recap.append("--- City Defense ---")
+	turn_recap.append("%s attacked while soldiers were in the dungeon!" % pending_battle_source)
+
+	var result = DungeonState.auto_resolve_city_defense(defenders, wave)
+	result["wave_names"] = wave_names
+	result["wave_source"] = pending_battle_source
+
+	for line in result.log_lines:
+		turn_recap.append(line)
+
+	pending_enemy_wave.clear()
+	_schedule_next_battle()
+
+	if not result.victory:
+		morale = max(0, morale - 15)
+		turn_recap.append("City morale dropped! -15 Morale")
+
+	emit_signal("soldiers_changed")
+	_pending_city_defense_result = result
+	_city_defense_replay_events = result.get("replay_events", [])
+
+func continue_after_city_defense() -> void:
+	emit_signal("turn_ended", current_turn)
+	if DungeonState.active:
+		emit_signal("dungeon_expedition_ready")
+	else:
+		emit_signal("recap_ready")
+
+func _phase_upkeep() -> void:
+	turn_recap.append("")
+	turn_recap.append("--- Upkeep ---")
+	_upkeep_soldiers_food()
+	_upkeep_barracks()
+	_phase_morale_combat_note()
+
+func _upkeep_soldiers_food() -> void:
+	if soldiers.is_empty():
+		turn_recap.append("No soldiers to feed.")
+		return
+	var food_needed = soldiers.size() * SOLDIER_FOOD_UPKEEP
+	if food >= food_needed:
+		food -= food_needed
+		turn_recap.append("Soldiers fed: -%d Food  (%d × %d)" % [food_needed, soldiers.size(), SOLDIER_FOOD_UPKEEP])
+	else:
+		var fed_count = int(float(food) / float(SOLDIER_FOOD_UPKEEP))
+		var unfed_count = soldiers.size() - fed_count
+		var morale_loss = unfed_count * MORALE_PENALTY_PER_UNFED_SOLDIER
+		food = 0
+		morale = max(0, morale - morale_loss)
+		turn_recap.append("Food shortage! %d/%d soldiers unfed. Morale -%d." % [unfed_count, soldiers.size(), morale_loss])
+
+func _upkeep_barracks() -> void:
+	if not is_building_built("Barracks"):
+		return
+	var workers = building_workers.get("Barracks", 0)
+	if workers <= 0:
+		return
+	var data = get_building_data("Barracks")
+	if data == null or data.consumes_food <= 0:
+		return
+	var food_cost = data.consumes_food * workers
+	if food >= food_cost:
+		food -= food_cost
+		turn_recap.append("Barracks upkeep: -%d Food" % food_cost)
+	else:
+		var shortage = food_cost - food
+		food = 0
+		morale = max(0, morale - 3)
+		turn_recap.append("Barracks underfed (need %d Food, short %d). Morale -3." % [food_cost, shortage])
+
+func _phase_production() -> void:
+	turn_recap.append("")
+	turn_recap.append("--- Production ---")
+	_process_production()
+
+func _phase_training() -> void:
+	turn_recap.append("")
+	turn_recap.append("--- Training ---")
+	_process_training()
+
+const EVENT_CHANCE: float = 0.40  # 40% sansa de eveniment per tura
+
+const EVENTS: Array = [
+	# --- BUNE ---
+	{
+		id = "wandering_merchant",
+		title = "Wandering Merchant",
+		description = "A traveling merchant stops in the city and trades at fair prices.",
+		effects = [{"resource": "Gold", "amount": 60}],
+		category = "good",
+	},
+	{
+		id = "good_harvest",
+		title = "Good Harvest",
+		description = "Favorable weather blessed the fields this season.",
+		effects = [{"resource": "Food", "amount": 25}],
+		category = "good",
+	},
+	{
+		id = "found_supplies",
+		title = "Found Supplies",
+		description = "Workers uncovered a cache of materials buried in the ruins.",
+		effects = [{"resource": "Wood", "amount": 30}, {"resource": "Stone", "amount": 15}],
+		category = "good",
+	},
+	{
+		id = "morale_boost",
+		title = "Inspiring Victory",
+		description = "News of the prince's resolve spreads — the people's spirits rise.",
+		effects = [{"resource": "Morale", "amount": 15}],
+		category = "good",
+	},
+	{
+		id = "king_gift",
+		title = "Royal Dispatch",
+		description = "The king sends a small supply caravan to aid the reconstruction.",
+		effects = [{"resource": "Gold", "amount": 40}, {"resource": "Wood", "amount": 20}],
+		category = "good",
+	},
+	# --- RELE ---
+	{
+		id = "bandit_raid",
+		title = "Bandit Raid",
+		description = "Bandits struck the city outskirts overnight and looted supplies.",
+		effects = [{"resource": "Gold", "amount": -50}],
+		category = "bad",
+	},
+	{
+		id = "crop_blight",
+		title = "Crop Blight",
+		description = "A fungal blight swept through the fields, rotting the stores.",
+		effects = [{"resource": "Food", "amount": -30}],
+		category = "bad",
+	},
+	{
+		id = "fire",
+		title = "Workshop Fire",
+		description = "A fire broke out in the lumber yard, destroying stockpiled wood.",
+		effects = [{"resource": "Wood", "amount": -25}],
+		category = "bad",
+	},
+	{
+		id = "desertion",
+		title = "Desertion",
+		description = "Fear spreads through the ranks — two men slipped away in the night.",
+		effects = [{"resource": "Morale", "amount": -10}],
+		category = "bad",
+	},
+	{
+		id = "monster_scout",
+		title = "Monster Scouts Spotted",
+		description = "Enemy scouts have been seen near the walls. The attack is coming sooner.",
+		effects = [],
+		category = "bad",
+		force_early_combat = true,
+	},
+	# --- NEUTRE / STORYLINE ---
+	{
+		id = "refugees",
+		title = "Refugees Arrive",
+		description = "A group of survivors from a nearby village seeks shelter in the city.",
+		effects = [{"resource": "Morale", "amount": 5}],
+		category = "neutral",
+	},
+	{
+		id = "king_message",
+		title = "Message from the King",
+		description = "\"Hold the city, my son. The kingdom watches. Do not fail us.\"",
+		effects = [],
+		category = "neutral",
+	},
+	{
+		id = "strange_traveler",
+		title = "Strange Traveler",
+		description = "A hooded figure passes through, leaving a small pouch of gold coins behind.",
+		effects = [{"resource": "Gold", "amount": 30}],
+		category = "neutral",
+	},
+]
+
+func _phase_morale_combat_note() -> void:
+	if morale < 50:
+		var penalty = int((50 - morale) * 0.2)
+		turn_recap.append("Low Morale (%d) — soldiers suffer -%d%% hit chance in battle." % [morale, penalty])
+	elif morale >= 75:
+		turn_recap.append("High Morale (%d) — soldiers get +%d%% hit chance in battle." % [morale, int((morale - 50) * 0.2)])
+
+func _phase_events() -> void:
+	if randf() > EVENT_CHANCE:
+		return
+
+	var pool = EVENTS.duplicate()
+	var event = pool[randi_range(0, pool.size() - 1)]
+
+	# Apply effects immediately
+	for effect in event.get("effects", []):
+		var amount: int = effect.amount
+		_apply_resource_delta(effect.resource, amount)
+
+	if event.get("force_early_combat", false):
+		turns_until_next_battle = max(1, turns_until_next_battle - 1)
+
+	# Defer display to next turn's recap
+	_pending_event_recap.append("")
+	_pending_event_recap.append("--- Event (from previous turn) ---")
+
+	var category_prefix = ""
+	match event.get("category", "neutral"):
+		"good":    category_prefix = "[+] "
+		"bad":     category_prefix = "[!] "
+		"neutral": category_prefix = "[~] "
+
+	_pending_event_recap.append("%s%s" % [category_prefix, event.title])
+	_pending_event_recap.append(event.description)
+
+	for effect in event.get("effects", []):
+		var amount: int = effect.amount
+		var sign_str = "+" if amount >= 0 else ""
+		_pending_event_recap.append("  %s%d %s" % [sign_str, amount, effect.resource])
+
+	if event.get("force_early_combat", false):
+		_pending_event_recap.append("  The enemy wave arrived 1 turn sooner!")
+
+	_pending_event_data = event.duplicate()
 
 #var sign = ""
 func _process_production() -> void:
@@ -438,6 +777,8 @@ func _process_production() -> void:
 	for b_name in building_workers:
 		var workers = building_workers[b_name]
 		if workers <= 0:
+			continue
+		if not is_building_built(b_name):
 			continue
 
 		var prod = get_building_production(b_name, workers)
@@ -495,19 +836,19 @@ func _get_production_shortage(prod: Dictionary) -> Dictionary:
 func _apply_resource_delta(resource: String, amount: int) -> void:
 	match resource:
 		"Wood":
-			wood += amount
+			wood = max(0, wood + amount)
 		"Stone":
-			stone += amount
+			stone = max(0, stone + amount)
 		"Iron":
-			iron += amount
+			iron = max(0, iron + amount)
 		"Steel":
-			steel += amount
+			steel = max(0, steel + amount)
 		"Food":
-			food += amount
+			food = max(0, food + amount)
 		"Gold":
-			gold += amount
+			gold = max(0, gold + amount)
 		"Morale":
-			morale += amount
+			morale = clampi(morale + amount, 0, 100)
 
 func _process_training() -> void:
 	var training_data = get_building_data("Training Grounds")

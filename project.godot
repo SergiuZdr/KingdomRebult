@@ -21,6 +21,7 @@ BuildingPopup="*uid://cgcyy0m4kd4jq"
 CombatState="*uid://bl6smara6dxkq"
 SaveManager="*uid://6twmscj8jrs2"
 TraitChecker="*uid://cfq2nucef3px5"
+DungeonState="*res://scripts/autoload/DungeonState.gd"
 
 [display]
 

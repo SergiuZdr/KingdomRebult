@@ -27,12 +27,12 @@ func play(enemy_wave: Array) -> void:
 		enemy_names[base_name] = enemy_names.get(base_name, 0) + 1
 
 	var parts = []
-	for name in enemy_names:
-		var count = enemy_names[name]
+	for e_name in enemy_names:
+		var count = enemy_names[e_name]
 		if count > 1:
-			parts.append("%d %ss" % [count, name])
+			parts.append("%d %ss" % [count, e_name])
 		else:
-			parts.append(name)
+			parts.append(e_name)
 
 	enemy_label.text = " + ".join(parts)
 	flavor_label.text = FLAVOR_TEXTS[randi_range(0, FLAVOR_TEXTS.size() - 1)]

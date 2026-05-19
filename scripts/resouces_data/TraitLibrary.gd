@@ -83,13 +83,6 @@ static func get_all() -> Array[TraitData]:
 			TraitData.TraitTrigger.LEVEL_UP,
 			{power_bonus = 10, hp_bonus = 40, defense_bonus = 5,
 			 hit_chance_bonus = 0.05, required_level = 20}),
-
-
-		_make("resilient",
-			"Resilient",
-			"Reached level 6. Has survived everything thrown at them.",
-			TraitData.TraitTrigger.LEVEL_UP,
-			{hp_bonus = 50, defense_bonus = 3, required_level = 6}),
 	]
 
 static func _make(id: String, tname: String, desc: String,

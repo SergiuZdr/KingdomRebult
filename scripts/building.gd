@@ -11,6 +11,16 @@ extends Area2D
 func _ready() -> void:
 	name_label.text = building_name
 	input_pickable = true
+	_update_visual_state()
+	GameState.resources_changed.connect(_update_visual_state)
+
+func _update_visual_state() -> void:
+	if GameState.is_building_built(building_name):
+		name_label.text = building_name
+		modulate = Color(1.0, 1.0, 1.0)
+	else:
+		name_label.text = building_name + "\n[Ruins]"
+		modulate = Color(0.65, 0.5, 0.4)
 
 func _input(event: InputEvent) -> void:
 	if not event is InputEventMouseButton:

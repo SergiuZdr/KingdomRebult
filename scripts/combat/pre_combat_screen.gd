@@ -16,6 +16,11 @@ signal selection_confirmed(soldiers: Array)
 func _ready() -> void:
 	btn_fight.pressed.connect(_on_fight_pressed)
 	btn_fight.disabled = true
+	var auto_btn = Button.new()
+	auto_btn.text = "Auto Select Best"
+	auto_btn.custom_minimum_size = Vector2(160, 40)
+	auto_btn.pressed.connect(_on_auto_select_pressed)
+	$Panel/MarginContainer/VBoxContainer/Footer.add_child(auto_btn)
 	hide()
 
 func open(enemy_wave: Array[EnemyData]) -> void:
@@ -26,8 +31,8 @@ func open(enemy_wave: Array[EnemyData]) -> void:
 	for e in enemy_wave:
 		enemy_names[e.enemy_name] = enemy_names.get(e.enemy_name, 0) + 1
 	var parts = []
-	for name in enemy_names:
-		parts.append("%dx %s" % [enemy_names[name], name])
+	for s_name in enemy_names:
+		parts.append("%dx %s" % [enemy_names[s_name], s_name])
 
 	subtitle_label.text = "Incoming: %s\nSelect up to %d soldiers." % [
 		" + ".join(parts), MAX_COMBAT_SLOTS
@@ -42,7 +47,14 @@ func _build_soldier_list() -> void:
 	for child in soldier_list.get_children():
 		child.queue_free()
 
+	# Soldiers in the dungeon are removed from GameState.soldiers, so all remaining are available
 	var alive = GameState.soldiers.filter(func(s): return s.is_alive())
+	if DungeonState.active and not DungeonState.soldiers_in_dungeon.is_empty():
+		var exp_lbl = Label.new()
+		exp_lbl.text = "%d soldier(s) are in the dungeon and unavailable." % DungeonState.soldiers_in_dungeon.size()
+		exp_lbl.add_theme_color_override("font_color", Color(0.9, 0.75, 0.3))
+		exp_lbl.add_theme_font_size_override("font_size", 12)
+		soldier_list.add_child(exp_lbl)
 
 	if alive.is_empty():
 		var lbl = Label.new()
@@ -79,6 +91,7 @@ func _make_select_card(soldier: SoldierData) -> PanelContainer:
 	panel.add_child(hbox)
 
 	var checkbox = CheckBox.new()
+	checkbox.button_pressed = selected_soldiers.has(soldier)
 	hbox.add_child(checkbox)
 
 	var vbox = VBoxContainer.new()
@@ -130,4 +143,17 @@ func _on_fight_pressed() -> void:
 	GameState.menu_open = false
 	emit_signal("selection_confirmed", selected_soldiers)
 	hide()
-	
+
+func _on_auto_select_pressed() -> void:
+	selected_soldiers.clear()
+	var alive = GameState.soldiers.filter(func(s): return s.is_alive())
+	# Score soldiers: power*2 + speed + defense + hp_ratio
+	alive.sort_custom(func(a, b):
+		var score_a = a.get_total_power() * 2 + a.get_total_speed() + a.get_total_defense() + int(float(a.hp_current) / float(a.hp_max) * 10)
+		var score_b = b.get_total_power() * 2 + b.get_total_speed() + b.get_total_defense() + int(float(b.hp_current) / float(b.hp_max) * 10)
+		return score_a > score_b
+	)
+	for s in alive.slice(0, MAX_COMBAT_SLOTS):
+		selected_soldiers.append(s)
+	_build_soldier_list()
+	_update_count()

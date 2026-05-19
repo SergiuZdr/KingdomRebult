@@ -12,7 +12,6 @@ enum WeaponType { SWORD, AXE, BOW, DAGGER, SPEAR }
 @export var gold_cost: int = 50
 
 # Stat bonuses
-@export var power_bonus: int = 0
 @export var speed_bonus: int = 0
 @export var dexterity_bonus: int = 0
 @export var hp_bonus: int = 0
@@ -28,7 +27,6 @@ enum WeaponType { SWORD, AXE, BOW, DAGGER, SPEAR }
 
 func get_stats_display() -> String:
 	var parts = []
-	if power_bonus != 0:     parts.append("POW %+d" % power_bonus)
 	if speed_bonus != 0:     parts.append("SPD %+d" % speed_bonus)
 	if dexterity_bonus != 0: parts.append("DEX %+d" % dexterity_bonus)
 	if hp_bonus != 0:        parts.append("HP %+d" % hp_bonus)
@@ -44,9 +42,8 @@ static func make_iron_sword() -> ItemData:
 	i.weapon_type = WeaponType.SWORD
 	i.description = "A reliable iron sword."
 	i.gold_cost = 80
-	i.power_bonus = 3
-	i.damage_min = 8
-	i.damage_max = 14
+	i.damage_min = 11
+	i.damage_max = 17
 	i.hit_chance_bonus = 0.05
 	return i
 
@@ -57,9 +54,8 @@ static func make_steel_axe() -> ItemData:
 	i.weapon_type = WeaponType.AXE
 	i.description = "Heavy but devastating."
 	i.gold_cost = 120
-	i.power_bonus = 6
-	i.damage_min = 12
-	i.damage_max = 20
+	i.damage_min = 18
+	i.damage_max = 26
 	i.hit_chance_bonus = -0.05
 	return i
 

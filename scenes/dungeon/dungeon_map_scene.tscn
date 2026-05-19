@@ -1,0 +1,85 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scenes/dungeon/dungeon_map_scene.gd" id="1_dmsscript"]
+
+[node name="DungeonMapScene" type="CanvasLayer"]
+layer = 30
+script = ExtResource("1_dmsscript")
+
+[node name="Background" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.08, 0.07, 0.1, 0.98)
+mouse_filter = 2
+
+[node name="Root" type="Control" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Title" type="Label" parent="Root"]
+offset_left = 20.0
+offset_top = 14.0
+offset_right = 620.0
+offset_bottom = 50.0
+theme_override_font_sizes/font_size = 22
+theme_override_colors/font_color = Color(0.95, 0.82, 0.4, 1.0)
+
+[node name="SoldiersLabel" type="Label" parent="Root"]
+offset_left = 620.0
+offset_top = 14.0
+offset_right = 1180.0
+offset_bottom = 50.0
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.75, 0.9, 0.75, 1.0)
+
+[node name="MapContainer" type="Control" parent="Root"]
+offset_left = 20.0
+offset_top = 56.0
+offset_right = 760.0
+offset_bottom = 696.0
+clip_contents = true
+
+[node name="RightPanel" type="VBoxContainer" parent="Root"]
+offset_left = 780.0
+offset_top = 56.0
+offset_right = 1180.0
+offset_bottom = 696.0
+theme_override_constants/separation = 10
+
+[node name="InfoLabel" type="Label" parent="Root/RightPanel"]
+layout_mode = 2
+custom_minimum_size = Vector2(380.0, 80.0)
+size_flags_horizontal = 3
+autowrap_mode = 3
+theme_override_colors/font_color = Color(0.9, 0.85, 0.7, 1.0)
+
+[node name="RecallBtn" type="Button" parent="Root/RightPanel"]
+layout_mode = 2
+custom_minimum_size = Vector2(380.0, 44.0)
+text = "Recall Soldiers (return to city)"
+theme_override_colors/font_color = Color(1.0, 0.8, 0.4, 1.0)
+
+[node name="HSeparator" type="HSeparator" parent="Root/RightPanel"]
+layout_mode = 2
+
+[node name="LogTitle" type="Label" parent="Root/RightPanel"]
+layout_mode = 2
+text = "Expedition Log"
+theme_override_font_sizes/font_size = 13
+
+[node name="LogScroll" type="ScrollContainer" parent="Root/RightPanel"]
+layout_mode = 2
+custom_minimum_size = Vector2(380.0, 0.0)
+size_flags_vertical = 3
+
+[node name="LogList" type="VBoxContainer" parent="Root/RightPanel/LogScroll"]
+layout_mode = 2
+custom_minimum_size = Vector2(360.0, 0.0)
+size_flags_horizontal = 3

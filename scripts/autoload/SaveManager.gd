@@ -54,9 +54,10 @@ func get_slot_info(slot: int) -> Dictionary:
 	if file == null:
 		return {empty = true, slot = slot}
 	var json = JSON.new()
-	if json.parse(file.get_as_text()) != OK:
-		return {empty = true, slot = slot}
+	var raw_text = file.get_as_text()
 	file.close()
+	if json.parse(raw_text) != OK:
+		return {empty = true, slot = slot}
 	var data = json.get_data()
 	return {
 		empty = false,
@@ -73,30 +74,7 @@ func delete_save(slot: int) -> void:
 		DirAccess.remove_absolute(path)
 
 func _collect_save_data() -> Dictionary:
-	var soldiers_data = []
-	for s in GameState.soldiers:
-		var weapon_1_data = _serialize_item(s.weapon_1)
-		var weapon_2_data = _serialize_item(s.weapon_2)
-		var armor_data = _serialize_item(s.armor)
-		soldiers_data.append({
-			soldier_name = s.soldier_name,
-			level = s.level,
-			experience = s.experience,
-			xp_to_next_level = s.xp_to_next_level,
-			hp_max = s.hp_max,
-			hp_current = s.hp_current,
-			power = s.power,
-			speed = s.speed,
-			dexterity = s.dexterity,
-			#hp_head = s.hp_head,
-			#hp_left_arm = s.hp_left_arm,
-			#hp_right_arm = s.hp_right_arm,
-			#hp_legs = s.hp_legs,
-			weapon_1 = weapon_1_data,
-			weapon_2 = weapon_2_data,
-			armor = armor_data,
-			traits = _serialize_traits(s.traits),
-		})
+	var soldiers_data = _serialize_soldier_array(GameState.soldiers)
 
 	var owned_items_data = []
 	for item in GameState.owned_items:
@@ -105,6 +83,10 @@ func _collect_save_data() -> Dictionary:
 	var building_workers_data = {}
 	for b in GameState.building_workers:
 		building_workers_data[b] = GameState.building_workers[b]
+
+	var tavern_roster_data = _serialize_soldier_array(GameState.tavern_roster)
+
+	var dungeon_data = _serialize_dungeon_state()
 
 	return {
 		timestamp = Time.get_datetime_string_from_system(),
@@ -118,14 +100,142 @@ func _collect_save_data() -> Dictionary:
 		morale = GameState.morale,
 		workforce_total = GameState.workforce_total,
 		workforce_available = GameState.workforce_available,
+		workforce_cap = GameState.workforce_cap,
 		max_soldiers = GameState.max_soldiers,
 		combat_difficulty = GameState.combat_difficulty,
 		turns_until_next_battle = GameState.turns_until_next_battle,
 		tavern_workers_last_turn = GameState.tavern_workers_last_turn,
 		building_workers = building_workers_data,
+		building_built_status = GameState.building_built_status.duplicate(),
+		house_recruits_this_turn = GameState.house_recruits_this_turn,
+		tavern_roster = tavern_roster_data,
+		dungeon = dungeon_data,
 		soldiers = soldiers_data,
 		owned_items = owned_items_data,
 	}
+
+func _serialize_soldier_array(soldier_array: Array) -> Array:
+	var result = []
+	for s in soldier_array:
+		result.append({
+			soldier_name = s.soldier_name,
+			soldier_class = s.soldier_class,
+			level = s.level,
+			experience = s.experience,
+			xp_to_next_level = s.xp_to_next_level,
+			hp_max = s.hp_max,
+			hp_current = s.hp_current,
+			power = s.power,
+			speed = s.speed,
+			dexterity = s.dexterity,
+			weapon_1 = _serialize_item(s.weapon_1),
+			weapon_2 = _serialize_item(s.weapon_2),
+			armor = _serialize_item(s.armor),
+			traits = _serialize_traits(s.traits),
+			unlocked_skills = s.unlocked_skills.map(func(sk): return sk.skill_id),
+		})
+	return result
+
+func _deserialize_soldier_array(data_array: Array) -> Array[SoldierData]:
+	var result: Array[SoldierData] = []
+	for s_data in data_array:
+		var s = SoldierData.new()
+		s.soldier_name = s_data.get("soldier_name", "Unknown")
+		s.soldier_class = s_data.get("soldier_class", "")
+		s.level = s_data.get("level", 1)
+		s.experience = s_data.get("experience", 0)
+		s.xp_to_next_level = s_data.get("xp_to_next_level", 100)
+		s.hp_max = s_data.get("hp_max", 100)
+		s.hp_current = s_data.get("hp_current", 100)
+		s.power = s_data.get("power", 10)
+		s.speed = s_data.get("speed", 5)
+		s.dexterity = s_data.get("dexterity", 5)
+		s.traits = _deserialize_traits(s_data.get("traits", []))
+		var skill_ids: Array = s_data.get("unlocked_skills", [])
+		for skill_id in skill_ids:
+			var all_skills: Array = SkillLibrary.get_class_skills(s.soldier_class).duplicate()
+			all_skills.append_array(SkillLibrary.get_universal_skills())
+			for sk in all_skills:
+				if sk.skill_id == skill_id:
+					s.unlock_skill(sk)
+					break
+		s.weapon_1 = _deserialize_item(s_data.get("weapon_1", {}))
+		s.weapon_2 = _deserialize_item(s_data.get("weapon_2", {}))
+		s.armor = _deserialize_item(s_data.get("armor", {}))
+		result.append(s)
+	return result
+
+func _serialize_dungeon_state() -> Dictionary:
+	var d = {
+		dungeon_level = DungeonState.dungeon_level,
+		active = DungeonState.active,
+	}
+	if not DungeonState.active or DungeonState.map == null:
+		return d
+	d["current_pos"] = [DungeonState.current_pos.x, DungeonState.current_pos.y]
+	d["soldiers_in_dungeon"] = _serialize_soldier_array(DungeonState.soldiers_in_dungeon)
+	d["expedition_log"] = DungeonState.expedition_log.duplicate()
+	var rooms_data = []
+	for pos in DungeonState.map.grid.keys():
+		var rid = DungeonState.map.grid[pos]
+		if rid == -1:
+			continue
+		var room: DungeonRoom = DungeonState.map.rooms[rid]
+		rooms_data.append({
+			pos_x = pos.x,
+			pos_y = pos.y,
+			room_type = room.room_type,
+			cleared = room.cleared,
+			visited = room.visited,
+			loot_gold = room.loot_gold,
+		})
+	d["map"] = {
+		num_rows = DungeonState.map.num_rows,
+		dungeon_level = DungeonState.map.dungeon_level,
+		rooms = rooms_data,
+	}
+	return d
+
+func _restore_dungeon_state(d: Dictionary) -> void:
+	DungeonState.dungeon_level = d.get("dungeon_level", 1)
+	if not d.get("active", false):
+		return
+
+	DungeonState.active = true
+	var pos_arr = d.get("current_pos", [2, 5])
+	DungeonState.current_pos = Vector2i(pos_arr[0], pos_arr[1])
+	DungeonState.expedition_log = d.get("expedition_log", [])
+	DungeonState.soldiers_in_dungeon = _deserialize_soldier_array(d.get("soldiers_in_dungeon", []))
+
+	var map_data = d.get("map", {})
+	if map_data.is_empty():
+		DungeonState.active = false
+		return
+
+	var map = DungeonMap.new()
+	map.dungeon_level = map_data.get("dungeon_level", 1)
+	map.num_rows = map_data.get("num_rows", 6)
+	map.rooms.clear()
+	map.grid.clear()
+	for row in map.num_rows:
+		for col in DungeonMap.GRID_COLS:
+			map.grid[Vector2i(col, row)] = -1
+
+	for r_data in map_data.get("rooms", []):
+		var pos = Vector2i(r_data.get("pos_x", 0), r_data.get("pos_y", 0))
+		var room = DungeonRoom.new()
+		room.room_id = map.rooms.size()
+		room.grid_pos = pos
+		room.room_type = r_data.get("room_type", DungeonRoom.RoomType.EMPTY) as DungeonRoom.RoomType
+		room.cleared = r_data.get("cleared", false)
+		room.visited = r_data.get("visited", false)
+		room.loot_gold = r_data.get("loot_gold", 0)
+		map.rooms.append(room)
+		map.grid[pos] = room.room_id
+
+	# Re-populate enemies for uncleared combat rooms
+	map._populate_enemies()
+	DungeonState.map = map
 
 func _serialize_traits(traits: Array) -> Array:
 	var result = []
@@ -152,7 +262,6 @@ func _serialize_item(item: ItemData) -> Dictionary:
 		weapon_type = item.weapon_type,
 		description = item.description,
 		gold_cost = item.gold_cost,
-		power_bonus = item.power_bonus,
 		speed_bonus = item.speed_bonus,
 		dexterity_bonus = item.dexterity_bonus,
 		hp_bonus = item.hp_bonus,
@@ -172,7 +281,6 @@ func _deserialize_item(data: Dictionary) -> ItemData:
 	item.weapon_type = data.get("weapon_type", 0)
 	item.description = data.get("description", "")
 	item.gold_cost = data.get("gold_cost", 0)
-	item.power_bonus = data.get("power_bonus", 0)
 	item.speed_bonus = data.get("speed_bonus", 0)
 	item.dexterity_bonus = data.get("dexterity_bonus", 0)
 	item.hp_bonus = data.get("hp_bonus", 0)
@@ -194,7 +302,8 @@ func _apply_save_data(data: Dictionary) -> void:
 	GameState.morale = data.get("morale", 100)
 	GameState.workforce_total = data.get("workforce_total", 10)
 	GameState.workforce_available = data.get("workforce_available", 10)
-	GameState.max_soldiers = data.get("max_soldiers", 5)
+	GameState.workforce_cap = data.get("workforce_cap", GameState.BASE_WORKFORCE_CAP)
+	GameState.max_soldiers = data.get("max_soldiers", 4)
 	GameState.combat_difficulty = data.get("combat_difficulty", 1)
 	GameState.turns_until_next_battle = data.get("turns_until_next_battle", 2)
 	GameState.tavern_workers_last_turn = data.get("tavern_workers_last_turn", 0)
@@ -204,33 +313,34 @@ func _apply_save_data(data: Dictionary) -> void:
 		if GameState.building_workers.has(b):
 			GameState.building_workers[b] = bw[b]
 
-	GameState.soldiers.clear()
-	for s_data in data.get("soldiers", []):
-		var s = SoldierData.new()
-		s.soldier_name = s_data.get("soldier_name", "Unknown")
-		s.level = s_data.get("level", 1)
-		s.experience = s_data.get("experience", 0)
-		s.xp_to_next_level = s_data.get("xp_to_next_level", 100)
-		s.hp_max = s_data.get("hp_max", 100)
-		s.hp_current = s_data.get("hp_current", 100)
-		s.power = s_data.get("power", 10)
-		s.speed = s_data.get("speed", 5)
-		s.dexterity = s_data.get("dexterity", 5)
-		#s.hp_head = s_data.get("hp_head", 30)
-		#s.hp_left_arm = s_data.get("hp_left_arm", 25)
-		#s.hp_right_arm = s_data.get("hp_right_arm", 25)
-		#s.hp_legs = s_data.get("hp_legs", 40)
-		s.traits = _deserialize_traits(s_data.get("traits", []))
-		s.weapon_1 = _deserialize_item(s_data.get("weapon_1", {}))
-		s.weapon_2 = _deserialize_item(s_data.get("weapon_2", {}))
-		s.armor = _deserialize_item(s_data.get("armor", {}))
-		GameState.soldiers.append(s)
+	var built = data.get("building_built_status", {})
+	for b in built:
+		GameState.building_built_status[b] = built[b]
+	GameState.house_recruits_this_turn = data.get("house_recruits_this_turn", 0)
+
+	GameState.soldiers = _deserialize_soldier_array(data.get("soldiers", []))
 
 	GameState.owned_items.clear()
 	for i_data in data.get("owned_items", []):
 		var item = _deserialize_item(i_data)
 		if item != null:
 			GameState.owned_items.append(item)
+
+	# Tavern roster
+	var roster_data = data.get("tavern_roster", [])
+	if roster_data.is_empty():
+		GameState.refresh_tavern_roster()
+	else:
+		GameState.tavern_roster = _deserialize_soldier_array(roster_data)
+
+	# Dungeon state (new format) — fall back gracefully for old saves
+	var dungeon_data = data.get("dungeon", {})
+	if dungeon_data.is_empty():
+		# Old save format: just restore level, no expedition
+		DungeonState.dungeon_level = data.get("dungeon_level", 1)
+		DungeonState.active = false
+	else:
+		_restore_dungeon_state(dungeon_data)
 
 	GameState.emit_signal("resources_changed")
 	GameState.emit_signal("soldiers_changed")

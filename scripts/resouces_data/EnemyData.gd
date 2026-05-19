@@ -13,6 +13,7 @@ enum EnemyType { MONSTER, ANIMAL, SOLDIER }
 @export var dexterity: int = 3
 @export var gold_reward: int = 20
 @export var xp_reward: int = 15
+@export var dodge_bonus: float = 0.0
 
 func is_alive() -> bool:
 	return hp_current > 0
@@ -30,6 +31,7 @@ static func make_goblin() -> EnemyData:
 	e.hp_max = 30; e.hp_current = 30
 	e.power = 6; e.speed = 6; e.dexterity = 5
 	e.gold_reward = 15; e.xp_reward = 10
+	e.dodge_bonus = 0.08
 	return e
 
 static func make_orc() -> EnemyData:
@@ -48,6 +50,7 @@ static func make_wolf() -> EnemyData:
 	e.hp_max = 50; e.hp_current = 50
 	e.power = 10; e.speed = 8; e.dexterity = 6
 	e.gold_reward = 10; e.xp_reward = 15
+	e.dodge_bonus = 0.12
 	return e
 
 static func make_enemy_soldier() -> EnemyData:
@@ -57,17 +60,48 @@ static func make_enemy_soldier() -> EnemyData:
 	e.hp_max = 70; e.hp_current = 70
 	e.power = 12; e.speed = 5; e.dexterity = 5
 	e.gold_reward = 40; e.xp_reward = 30
+	e.dodge_bonus = 0.05
+	return e
+
+static func make_boss(difficulty: int) -> EnemyData:
+	var e = EnemyData.new()
+	var tier = int(float(difficulty) / 5.0)
+	var boss_names = ["Dark Captain", "Warlord Groth", "Iron Colossus", "Void Stalker", "Shadow King"]
+	e.enemy_name = boss_names[mini(tier, boss_names.size() - 1)]
+	e.enemy_type = EnemyType.SOLDIER
+	e.hp_max = 150 + tier * 80
+	e.hp_current = e.hp_max
+	e.power = 20 + tier * 8
+	e.speed = 5 + tier * 1
+	e.dexterity = 6 + tier * 1
+	e.gold_reward = 100 + tier * 50
+	e.xp_reward = 80 + tier * 30
+	return e
+
+static func _scale_enemy(e: EnemyData, difficulty: int) -> EnemyData:
+	var bonus = maxi(0, difficulty - 1)
+	e.hp_max += bonus * 8
+	e.hp_current = e.hp_max
+	e.power += bonus * 2
+	e.gold_reward += bonus * 5
+	e.xp_reward += bonus * 3
 	return e
 
 static func make_random_wave(difficulty: int) -> Array[EnemyData]:
 	var wave: Array[EnemyData] = []
-	var pool = ["goblin", "goblin", "wolf", "orc", "soldier"]
+	var pool: Array[String] = []
+
 	if difficulty <= 1:
 		pool = ["goblin", "goblin", "goblin", "wolf", "goblin"]
 	elif difficulty <= 3:
 		pool = ["goblin", "wolf", "orc", "goblin", "wolf"]
-	else:
+	elif difficulty <= 6:
 		pool = ["orc", "soldier", "wolf", "orc", "soldier"]
+	else:
+		pool = ["soldier", "orc", "soldier", "orc", "soldier", "wolf"]
+
+	# Boss wave every 5th difficulty level
+	var is_boss_wave = difficulty > 0 and difficulty % 5 == 0
 
 	# Numara aparitiile fiecarui tip
 	var type_counts: Dictionary = {}
@@ -85,10 +119,20 @@ static func make_random_wave(difficulty: int) -> Array[EnemyData]:
 			"soldier": enemy = make_enemy_soldier()
 			_:         enemy = make_goblin()
 
+		_scale_enemy(enemy, difficulty)
+
 		if type_counts[type] > 1:
 			type_index[type] = type_index.get(type, 0) + 1
 			enemy.enemy_name = "%s #%d" % [enemy.enemy_name, type_index[type]]
 
 		wave.append(enemy)
+
+	if is_boss_wave:
+		while wave.size() > 4:
+			wave.pop_back()
+		wave.append(make_boss(difficulty))
+	else:
+		while wave.size() > 5:
+			wave.pop_back()
 
 	return wave

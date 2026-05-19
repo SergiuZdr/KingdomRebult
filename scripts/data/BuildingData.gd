@@ -21,6 +21,7 @@ enum BuildingCategory {
 @export var build_time: int = 0
 @export var workforce_required: int = 0
 @export var max_level: int = 1
+@export var starts_built: bool = false
 @export var increases_population: int = 0
 @export var consumes_food: int = 0
 

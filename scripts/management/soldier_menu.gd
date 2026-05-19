@@ -24,7 +24,9 @@ func open() -> void:
 func _on_close() -> void:
 	_close_detail_window()
 	GameState.menu_open = false
-	get_tree().get_root().find_child("CityView", true, false).get_node("UI").visible = true
+	var city_view = get_tree().get_root().find_child("CityView", true, false)
+	if city_view != null:
+		city_view.get_node("UI").visible = true
 	hide()
 
 func _refresh() -> void:
@@ -38,9 +40,17 @@ func _refresh() -> void:
 		_close_detail_window()
 		return
 
+	var grid = GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	soldier_list.add_child(grid)
+
 	for soldier in GameState.soldiers:
+		if not soldier.is_alive():
+			continue
 		var card = _make_soldier_card(soldier)
-		soldier_list.add_child(card)
+		grid.add_child(card)
 
 	if selected_soldier != null:
 		if not GameState.soldiers.has(selected_soldier):
@@ -50,7 +60,8 @@ func _refresh() -> void:
 
 func _make_soldier_card(soldier: SoldierData) -> PanelContainer:
 	var panel = PanelContainer.new()
-	panel.custom_minimum_size = Vector2(700, 120)
+	panel.custom_minimum_size = Vector2(520, 120)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	panel.gui_input.connect(func(event: InputEvent):
 		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:

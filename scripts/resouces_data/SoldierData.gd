@@ -21,8 +21,6 @@ extends Resource
 
 func get_total_power() -> int:
 	var total = power
-	if weapon_1: total += weapon_1.power_bonus
-	if weapon_2: total += weapon_2.power_bonus
 	for t in traits: total += t.power_bonus
 	for skill in get_passive_skills(): total += skill.power_bonus
 	return total
@@ -173,8 +171,9 @@ func _level_up() -> void:
 	level += 1
 	xp_to_next_level = 100 + (level - 1) * 50
 	# Creste stats
-	hp_max      += randi_range(5, 10)
-	hp_current  = hp_max
+	var hp_gain = randi_range(5, 10)
+	hp_max     += hp_gain
+	hp_current  = mini(hp_max, hp_current + hp_gain)
 	power       += randi_range(1, 3)
 	speed       += randi_range(1, 2)
 	dexterity   += randi_range(1, 2)
@@ -187,6 +186,5 @@ func _level_up() -> void:
 
 	print("%s reached Level %d!" % [soldier_name, level])
 	print("  HP:%d POW:%d SPD:%d DEX:%d" % [hp_max, power, speed, dexterity])
-	TraitChecker.check_level_traits(self)  
 	TraitChecker.check_level_traits(self)
 	check_skill_unlocks()
