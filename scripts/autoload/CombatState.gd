@@ -25,7 +25,11 @@ signal turn_changed(entry: Dictionary)
 signal unit_acted(log_line: String)
 signal combat_ended(victory: bool)
 signal dungeon_combat_ended(victory: bool)
+signal dungeon_result_dismissed
 signal game_over
+
+func notify_dungeon_result_dismissed() -> void:
+	dungeon_result_dismissed.emit()
 
 func cancel_combat() -> void:
 	active = false

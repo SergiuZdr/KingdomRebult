@@ -84,7 +84,7 @@ const DUNGEON_TIPS: Array = [
 	"Tip: The Market building unlocks better weapons and armor.",
 ]
 
-func _play_dungeon_transition(header_text: String, on_complete: Callable) -> void:
+func _play_dungeon_transition(header_text: String, at_peak: Callable, on_complete: Callable = Callable(), start_black: bool = false) -> void:
 	var overlay = CanvasLayer.new()
 	overlay.layer = 100
 	add_child(overlay)
@@ -93,6 +93,8 @@ func _play_dungeon_transition(header_text: String, on_complete: Callable) -> voi
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_STOP
 	root.modulate.a = 0.0
+	if start_black:
+		root.modulate.a = 1.0
 	overlay.add_child(root)
 
 	var bg = ColorRect.new()
@@ -125,12 +127,15 @@ func _play_dungeon_transition(header_text: String, on_complete: Callable) -> voi
 	vbox.add_child(tip_lbl)
 
 	var tween = create_tween()
-	tween.tween_property(root, "modulate:a", 1.0, 0.35)
-	tween.tween_interval(1.4)
+	if not start_black:
+		tween.tween_property(root, "modulate:a", 1.0, 0.35)
+	tween.tween_callback(at_peak)
+	tween.tween_interval(1.2)
 	tween.tween_property(root, "modulate:a", 0.0, 0.35)
 	tween.tween_callback(func():
 		overlay.queue_free()
-		on_complete.call()
+		if on_complete.is_valid():
+			on_complete.call()
 	)
 
 func _open_dungeon_map() -> void:
@@ -154,9 +159,10 @@ func _on_dungeon_scene_closed() -> void:
 	dungeon_map_scene = null
 	if retrieve_btn:
 		retrieve_btn.visible = false
-	_play_dungeon_transition("Returning to City…", func():
+	var at_peak := func():
 		$UI.visible = true
 		$UI/HUD.visible = true
+	var on_complete := func():
 		if not DungeonState.active:
 			if not GameState._pending_city_defense_result.is_empty():
 				var result = GameState._pending_city_defense_result.duplicate()
@@ -165,7 +171,7 @@ func _on_dungeon_scene_closed() -> void:
 			else:
 				GameState.emit_signal("turn_ended", GameState.current_turn)
 				GameState.emit_signal("recap_ready")
-	)
+	_play_dungeon_transition("Returning to City…", at_peak, on_complete, true)
 
 func _on_city_defense_result(result: Dictionary) -> void:
 	GameState.menu_open = true
@@ -256,182 +262,12 @@ func _play_city_defense_replay() -> void:
 		GameState.emit_signal("recap_ready")
 		return
 
-	GameState.menu_open = true
-	var overlay = CanvasLayer.new()
-	overlay.layer = 90
-	add_child(overlay)
-
-	var root = Control.new()
-	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	root.mouse_filter = Control.MOUSE_FILTER_STOP
-	overlay.add_child(root)
-
-	var bg = ColorRect.new()
-	bg.color = Color(0.05, 0.05, 0.08, 0.96)
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	root.add_child(bg)
-
-	var main_vbox = VBoxContainer.new()
-	main_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	main_vbox.offset_left = 40; main_vbox.offset_right = -40
-	main_vbox.offset_top = 30; main_vbox.offset_bottom = -30
-	main_vbox.add_theme_constant_override("separation", 10)
-	root.add_child(main_vbox)
-
-	var title_lbl = Label.new()
-	title_lbl.text = "City Defense Replay"
-	title_lbl.add_theme_font_size_override("font_size", 22)
-	title_lbl.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
-	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	main_vbox.add_child(title_lbl)
-
-	# Unit cards row — enemies on top, defenders below
-	# Collect unique unit names from events
-	var enemy_names: Array = []
-	var defender_names: Array = []
-	for ev in events:
-		if ev.type == "attack":
-			if not ev.attacker_is_ally and not enemy_names.has(ev.attacker_name):
-				enemy_names.append(ev.attacker_name)
-			if ev.attacker_is_ally and not defender_names.has(ev.attacker_name):
-				defender_names.append(ev.attacker_name)
-			if not ev.target_is_ally and not enemy_names.has(ev.target_name):
-				enemy_names.append(ev.target_name)
-			if ev.target_is_ally and not defender_names.has(ev.target_name):
-				defender_names.append(ev.target_name)
-
-	# HP tracking dictionaries: name -> {hp_bar, hp_lbl, card}
-	var unit_hp_bars: Dictionary = {}
-
-	var enemy_row = HBoxContainer.new()
-	enemy_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	enemy_row.add_theme_constant_override("separation", 8)
-	main_vbox.add_child(enemy_row)
-
-	for e_name in enemy_names:
-		var card = _make_replay_unit_card(e_name, false, unit_hp_bars)
-		enemy_row.add_child(card)
-
-	var separator = HSeparator.new()
-	main_vbox.add_child(separator)
-
-	# Battle log scroll
-	var log_scroll = ScrollContainer.new()
-	log_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	log_scroll.custom_minimum_size = Vector2(0, 200)
-	main_vbox.add_child(log_scroll)
-
-	var log_list = VBoxContainer.new()
-	log_list.custom_minimum_size = Vector2(0, 0)
-	log_scroll.add_child(log_list)
-
-	var separator2 = HSeparator.new()
-	main_vbox.add_child(separator2)
-
-	var defender_row = HBoxContainer.new()
-	defender_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	defender_row.add_theme_constant_override("separation", 8)
-	main_vbox.add_child(defender_row)
-
-	for d_name in defender_names:
-		var card = _make_replay_unit_card(d_name, true, unit_hp_bars)
-		defender_row.add_child(card)
-
-	var skip_btn = Button.new()
-	skip_btn.text = "Skip Replay"
-	skip_btn.custom_minimum_size = Vector2(200, 40)
-	skip_btn.add_theme_font_size_override("font_size", 14)
-	skip_btn.pressed.connect(func():
-		overlay.queue_free()
-		GameState.menu_open = false
+	$UI.visible = false
+	combat_scene.start_city_defense_replay(events, func():
+		$UI.visible = true
 		GameState.emit_signal("turn_ended", GameState.current_turn)
 		GameState.emit_signal("recap_ready")
 	)
-	main_vbox.add_child(skip_btn)
-
-	# Play events with delays
-	_run_replay_events(events, unit_hp_bars, log_list, log_scroll, overlay, skip_btn)
-
-func _make_replay_unit_card(unit_name: String, is_ally: bool, hp_bars: Dictionary) -> PanelContainer:
-	var card = PanelContainer.new()
-	card.custom_minimum_size = Vector2(130, 80)
-
-	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 4)
-	card.add_child(vbox)
-
-	var name_lbl = Label.new()
-	name_lbl.text = unit_name
-	name_lbl.add_theme_font_size_override("font_size", 11)
-	name_lbl.clip_contents = true
-	name_lbl.add_theme_color_override("font_color",
-		Color(0.4, 0.9, 0.5) if is_ally else Color(0.9, 0.4, 0.4))
-	vbox.add_child(name_lbl)
-
-	var hp_bar = ProgressBar.new()
-	hp_bar.min_value = 0
-	hp_bar.max_value = 100
-	hp_bar.value = 100
-	hp_bar.show_percentage = false
-	hp_bar.custom_minimum_size = Vector2(110, 14)
-	vbox.add_child(hp_bar)
-
-	var hp_lbl = Label.new()
-	hp_lbl.text = "100%"
-	hp_lbl.add_theme_font_size_override("font_size", 10)
-	hp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(hp_lbl)
-
-	hp_bars[unit_name] = {bar = hp_bar, lbl = hp_lbl, card = card}
-	return card
-
-func _run_replay_events(events: Array, hp_bars: Dictionary, log_list: VBoxContainer, log_scroll: ScrollContainer, overlay: CanvasLayer, skip_btn: Button) -> void:
-	for ev in events:
-		if not is_instance_valid(overlay):
-			return
-
-		if ev.type == "attack":
-			var pct = int(float(ev.target_hp_after) / float(ev.target_hp_max) * 100)
-			if hp_bars.has(ev.target_name):
-				var info = hp_bars[ev.target_name]
-				info.bar.value = pct
-				info.lbl.text = "%d%%" % pct
-				if pct <= 0:
-					info.card.modulate = Color(0.4, 0.4, 0.4)
-
-			var log_lbl = Label.new()
-			log_lbl.text = "%s → %s  [-%d dmg]" % [ev.attacker_name, ev.target_name, ev.damage]
-			log_lbl.add_theme_font_size_override("font_size", 12)
-			log_lbl.add_theme_color_override("font_color",
-				Color(0.6, 0.9, 0.6) if ev.attacker_is_ally else Color(0.9, 0.55, 0.4))
-			log_list.add_child(log_lbl)
-			await get_tree().process_frame
-			log_scroll.scroll_vertical = log_scroll.get_v_scroll_bar().max_value
-
-		elif ev.type == "death":
-			var log_lbl = Label.new()
-			log_lbl.text = "✗ %s defeated!" % ev.unit_name
-			log_lbl.add_theme_font_size_override("font_size", 12)
-			log_lbl.add_theme_color_override("font_color", Color(0.8, 0.3, 0.3))
-			log_list.add_child(log_lbl)
-			if hp_bars.has(ev.unit_name):
-				hp_bars[ev.unit_name].card.modulate = Color(0.35, 0.35, 0.35)
-
-		await get_tree().create_timer(0.5).timeout
-
-	if not is_instance_valid(overlay):
-		return
-
-	# Show final result
-	var result_lbl = Label.new()
-	result_lbl.text = "— Replay Complete —"
-	result_lbl.add_theme_font_size_override("font_size", 16)
-	result_lbl.add_theme_color_override("font_color", Color(0.85, 0.82, 0.5))
-	result_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	log_list.add_child(result_lbl)
-
-	skip_btn.text = "Continue"
-	skip_btn.custom_minimum_size = Vector2(200, 44)
 
 func _on_btn_expeditions_pressed() -> void:
 	if GameState.menu_open:

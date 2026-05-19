@@ -213,14 +213,14 @@ func _populate_enemies() -> void:
 			var wave: Array[EnemyData] = []
 			wave.assign(EnemyData.make_random_wave(dungeon_level + 2).slice(0, randi_range(2, 4)))
 			room.enemies = wave
-			room.loot_gold = dungeon_level * 20 + randi_range(0, 30)
+			room.loot_gold = dungeon_level * 8 + randi_range(0, 10)
 		elif room.room_type == DungeonRoom.RoomType.BOSS:
 			var boss = EnemyData.make_boss(dungeon_level)
 			var escort: Array[EnemyData] = []
 			escort.assign(EnemyData.make_random_wave(dungeon_level).slice(0, 2))
 			room.enemies.append(boss)
 			room.enemies.append_array(escort)
-			room.loot_gold = dungeon_level * 50 + randi_range(20, 60)
+			room.loot_gold = dungeon_level * 20 + randi_range(8, 20)
 
 func _place_remains(dead_remains: Array) -> void:
 	if dead_remains.is_empty():

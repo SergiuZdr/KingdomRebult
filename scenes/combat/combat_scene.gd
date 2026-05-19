@@ -30,7 +30,7 @@ func _ready() -> void:
 	btn_speed_2x = Button.new()
 	btn_speed_2x.text = "2x OFF"
 	btn_speed_2x.custom_minimum_size = Vector2(90, 36)
-	btn_speed_2x.position = Vector2(1210, 10)
+	btn_speed_2x.position = Vector2(1000, 10)
 	btn_speed_2x.pressed.connect(_on_speed_toggle_pressed)
 	add_child(btn_speed_2x)
 
@@ -51,6 +51,19 @@ var unit_hp_labels: Dictionary = {}
 var unit_combat_cards: Dictionary = {}  # unit -> card din AlliesRow/EnemiesRow
 
 var selected_target = null
+
+var _replay_mode: bool = false
+var _replay_on_done: Callable = Callable()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not visible or not CombatState.active:
+		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		match event.keycode:
+			KEY_A:
+				_on_auto_toggle_pressed()
+			KEY_F:
+				_on_speed_toggle_pressed()
 
 func _build_turn_order_bar() -> void:
 	var bg = PanelContainer.new()
@@ -593,7 +606,8 @@ func _on_dungeon_fight_ended(victory: bool) -> void:
 	CombatState.auto_battle = false
 	if btn_auto != null:
 		btn_auto.text = "Auto: OFF"
-
+	await get_tree().process_frame
+	await get_tree().create_timer(1.0).timeout
 	_show_dungeon_fight_result(victory)
 
 func _show_dungeon_fight_result(victory: bool) -> void:
@@ -666,6 +680,7 @@ func _show_dungeon_fight_result(victory: bool) -> void:
 			child.queue_free()
 		CombatState.combat_log.clear()
 		GameState.menu_open = false
+		CombatState.notify_dungeon_result_dismissed()
 		call_deferred("hide")
 	)
 	vbox.add_child(continue_btn)
@@ -685,10 +700,14 @@ func _show_game_over_screen() -> void:
 	overlay.layer = 10
 	get_tree().get_root().add_child(overlay)
 
+	var root = Control.new()
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(root)
+
 	var bg = ColorRect.new()
 	bg.color = Color(0.05, 0.02, 0.02, 0.92)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(bg)
+	root.add_child(bg)
 
 	var vbox = VBoxContainer.new()
 	vbox.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
@@ -696,7 +715,7 @@ func _show_game_over_screen() -> void:
 	vbox.position -= Vector2(250, 150)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	vbox.add_theme_constant_override("separation", 20)
-	overlay.add_child(vbox)
+	root.add_child(vbox)
 
 	var title = Label.new()
 	title.text = "THE CITY HAS FALLEN"
@@ -729,3 +748,152 @@ func _show_game_over_screen() -> void:
 		get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
 	)
 	vbox.add_child(btn)
+
+func start_city_defense_replay(events: Array, on_done: Callable) -> void:
+	if events.is_empty():
+		on_done.call()
+		return
+
+	_replay_mode = true
+	_replay_on_done = on_done
+
+	# --- Build unit data from event log ---
+	var ally_hp: Dictionary = {}    # name -> hp_max
+	var enemy_hp: Dictionary = {}
+
+	for ev in events:
+		if ev.get("type") != "attack":
+			continue
+		var tname: String = ev.get("target_name", "")
+		var thp_max: int = ev.get("target_hp_max", 100)
+		if ev.get("target_is_ally", false):
+			if not ally_hp.has(tname):
+				ally_hp[tname] = thp_max
+		else:
+			if not enemy_hp.has(tname):
+				enemy_hp[tname] = thp_max
+		var aname: String = ev.get("attacker_name", "")
+		if ev.get("attacker_is_ally", false):
+			if not ally_hp.has(aname):
+				ally_hp[aname] = 100
+		else:
+			if not enemy_hp.has(aname):
+				enemy_hp[aname] = 100
+
+	# Create SoldierData and EnemyData for display
+	var allies_arr: Array[SoldierData] = []
+	for unit_name in ally_hp:
+		var s = SoldierData.new()
+		s.soldier_name = unit_name
+		s.hp_max = ally_hp[unit_name]
+		s.hp_current = ally_hp[unit_name]
+		allies_arr.append(s)
+
+	var enemies_arr: Array[EnemyData] = []
+	for unit_name in enemy_hp:
+		var e = EnemyData.new()
+		e.enemy_name = unit_name
+		e.hp_max = enemy_hp[unit_name]
+		e.hp_current = enemy_hp[unit_name]
+		enemies_arr.append(e)
+
+	CombatState.allies = allies_arr
+	CombatState.enemies = enemies_arr
+
+	GameState.menu_open = true
+	show()
+	selected_target = null
+	_build_units()
+	_add_log("— City Defense Replay —", Color(1.0, 0.5, 0.2))
+	turn_label.text = "City Defense — Replay"
+
+	# Disable interactive buttons
+	$ActionPanel/MarginContainer/VBoxContainer/HBoxButtons/BtnAttack.disabled = true
+	$ActionPanel/MarginContainer/VBoxContainer/HBoxButtons/BtnDefend.disabled = true
+	btn_auto.disabled = true
+	btn_speed_2x.disabled = true
+
+	# Skip button
+	var skip_btn = Button.new()
+	skip_btn.name = "ReplaySkipBtn"
+	skip_btn.text = "Skip Replay"
+	skip_btn.position = Vector2(1050, 680)
+	skip_btn.custom_minimum_size = Vector2(220, 44)
+	skip_btn.add_theme_font_size_override("font_size", 15)
+	skip_btn.pressed.connect(func():
+		if _replay_mode:
+			_replay_mode = false
+			_end_city_defense_replay()
+	)
+	add_child(skip_btn)
+
+	_run_city_defense_replay_events(events, skip_btn)
+
+func _end_city_defense_replay() -> void:
+	_replay_mode = false
+	$ActionPanel/MarginContainer/VBoxContainer/HBoxButtons/BtnAttack.disabled = false
+	$ActionPanel/MarginContainer/VBoxContainer/HBoxButtons/BtnDefend.disabled = false
+	btn_auto.disabled = false
+	btn_speed_2x.disabled = false
+	var skip_btn = get_node_or_null("ReplaySkipBtn")
+	if skip_btn:
+		skip_btn.queue_free()
+	for child in log_container.get_children():
+		child.queue_free()
+	CombatState.allies.clear()
+	CombatState.enemies.clear()
+	GameState.menu_open = false
+	hide()
+	if _replay_on_done.is_valid():
+		_replay_on_done.call()
+
+func _run_city_defense_replay_events(events: Array, skip_btn: Button) -> void:
+	for ev in events:
+		if not _replay_mode:
+			return
+
+		if ev.get("type") == "attack":
+			var attacker: String = ev.get("attacker_name", "?")
+			var target_name: String = ev.get("target_name", "?")
+			var dmg: int = ev.get("damage", 0)
+			var hp_after: int = ev.get("target_hp_after", 0)
+			var is_ally_att: bool = ev.get("attacker_is_ally", false)
+
+			turn_label.text = "%s attacks %s" % [attacker, target_name]
+
+			# Update unit HP
+			var all_units: Array = []
+			all_units.append_array(CombatState.allies)
+			all_units.append_array(CombatState.enemies)
+			for unit in all_units:
+				var uname = unit.soldier_name if unit is SoldierData else unit.enemy_name
+				if uname == target_name:
+					unit.hp_current = hp_after
+					break
+			_refresh_all_cards()
+
+			_add_log("%s → %s  [-%d]" % [attacker, target_name, dmg],
+				Color(0.5, 0.9, 0.5) if is_ally_att else Color(0.9, 0.5, 0.4))
+
+		elif ev.get("type") == "death":
+			var unit_name: String = ev.get("unit_name", "?")
+			turn_label.text = "%s has fallen!" % unit_name
+			var all_units: Array = []
+			all_units.append_array(CombatState.allies)
+			all_units.append_array(CombatState.enemies)
+			for unit in all_units:
+				var uname = unit.soldier_name if unit is SoldierData else unit.enemy_name
+				if uname == unit_name and unit_combat_cards.has(unit):
+					unit_combat_cards[unit].modulate = Color(0.4, 0.4, 0.4)
+					break
+			_add_log("✗ %s defeated!" % unit_name, Color(0.85, 0.3, 0.3))
+
+		await get_tree().create_timer(0.5).timeout
+
+	if not _replay_mode:
+		return
+
+	turn_label.text = "— Replay Complete —"
+	_add_log("— Replay Complete —", Color(0.85, 0.82, 0.5))
+	if is_instance_valid(skip_btn):
+		skip_btn.text = "Continue"

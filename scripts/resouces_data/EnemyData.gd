@@ -30,7 +30,7 @@ static func make_goblin() -> EnemyData:
 	e.enemy_type = EnemyType.MONSTER
 	e.hp_max = 30; e.hp_current = 30
 	e.power = 6; e.speed = 6; e.dexterity = 5
-	e.gold_reward = 15; e.xp_reward = 10
+	e.gold_reward = 7; e.xp_reward = 10
 	e.dodge_bonus = 0.08
 	return e
 
@@ -40,7 +40,7 @@ static func make_orc() -> EnemyData:
 	e.enemy_type = EnemyType.MONSTER
 	e.hp_max = 80; e.hp_current = 80
 	e.power = 14; e.speed = 3; e.dexterity = 2
-	e.gold_reward = 30; e.xp_reward = 25
+	e.gold_reward = 12; e.xp_reward = 25
 	return e
 
 static func make_wolf() -> EnemyData:
@@ -49,7 +49,7 @@ static func make_wolf() -> EnemyData:
 	e.enemy_type = EnemyType.ANIMAL
 	e.hp_max = 50; e.hp_current = 50
 	e.power = 10; e.speed = 8; e.dexterity = 6
-	e.gold_reward = 10; e.xp_reward = 15
+	e.gold_reward = 5; e.xp_reward = 15
 	e.dodge_bonus = 0.12
 	return e
 
@@ -59,7 +59,7 @@ static func make_enemy_soldier() -> EnemyData:
 	e.enemy_type = EnemyType.SOLDIER
 	e.hp_max = 70; e.hp_current = 70
 	e.power = 12; e.speed = 5; e.dexterity = 5
-	e.gold_reward = 40; e.xp_reward = 30
+	e.gold_reward = 18; e.xp_reward = 30
 	e.dodge_bonus = 0.05
 	return e
 
@@ -74,7 +74,7 @@ static func make_boss(difficulty: int) -> EnemyData:
 	e.power = 20 + tier * 8
 	e.speed = 5 + tier * 1
 	e.dexterity = 6 + tier * 1
-	e.gold_reward = 100 + tier * 50
+	e.gold_reward = 50 + tier * 20
 	e.xp_reward = 80 + tier * 30
 	return e
 
@@ -83,7 +83,7 @@ static func _scale_enemy(e: EnemyData, difficulty: int) -> EnemyData:
 	e.hp_max += bonus * 8
 	e.hp_current = e.hp_max
 	e.power += bonus * 2
-	e.gold_reward += bonus * 5
+	e.gold_reward += bonus * 2
 	e.xp_reward += bonus * 3
 	return e
 

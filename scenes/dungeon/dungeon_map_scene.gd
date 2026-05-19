@@ -205,7 +205,7 @@ func _on_dungeon_combat_ended(victory: bool) -> void:
 	_in_combat = false
 	_waiting_for_input = true
 	GameState.menu_open = true
-	show()
+	# show() is deferred until the player dismisses the fight result screen
 
 	var room: DungeonRoom = DungeonState.map.get_room_at(DungeonState.current_pos)
 	if victory:
@@ -224,11 +224,12 @@ func _on_dungeon_combat_ended(victory: bool) -> void:
 			_add_log_entry("%s has fallen permanently." % s.soldier_name)
 		if room.room_type == DungeonRoom.RoomType.BOSS:
 			_add_log_entry("BOSS CLEARED! Dungeon Level %d complete." % DungeonState.dungeon_level)
-			_add_log_entry("Your soldiers are ready to return to the city.")
+			_add_log_entry("Explore remaining rooms or return to the city when ready.")
+			DungeonState.dungeon_level += 1
+			DungeonState.log_event("boss_cleared", "Boss defeated! Dungeon Level %d unlocked." % DungeonState.dungeon_level)
 			_render_map()
 			_refresh_info()
 			_refresh_soldiers_label()
-			DungeonState.on_boss_cleared()
 			_show_boss_cleared_return_button()
 			return
 	else:
@@ -277,7 +278,7 @@ func _handle_empty_room(room: DungeonRoom) -> void:
 		_add_log_entry(dmg_msg)
 	elif roll < 0.55:
 		# Gold cache
-		var gold = randi_range(10, 30) * DungeonState.dungeon_level
+		var gold = randi_range(4, 10) * DungeonState.dungeon_level
 		GameState.gold += gold
 		DungeonState.log_event("gold_cache", "Found a cache of %d Gold." % gold)
 		_add_log_entry("Found %d Gold in the ruins." % gold)
@@ -598,12 +599,12 @@ func _show_boss_cleared_return_button() -> void:
 	return_btn.add_theme_font_size_override("font_size", 18)
 	return_btn.add_theme_color_override("font_color", Color(0.3, 1.0, 0.5))
 	return_btn.pressed.connect(func():
+		DungeonState.recall_soldiers()
 		GameState.menu_open = false
 		emit_signal("dungeon_scene_closed")
 		queue_free()
 	)
 	$Root/RightPanel.add_child(return_btn)
-	# Hide the normal recall button since soldiers are already recalled
 	_recall_btn.visible = false
 
 func _on_recall_pressed() -> void:
@@ -624,6 +625,15 @@ func _add_log_entry(text: String) -> void:
 func _connect_combat_signals() -> void:
 	if not CombatState.dungeon_combat_ended.is_connected(_on_dungeon_combat_ended):
 		CombatState.dungeon_combat_ended.connect(_on_dungeon_combat_ended)
+	if not CombatState.dungeon_result_dismissed.is_connected(_on_dungeon_result_dismissed):
+		CombatState.dungeon_result_dismissed.connect(_on_dungeon_result_dismissed)
+
+func _on_dungeon_result_dismissed() -> void:
+	show()
+	if DungeonState.map != null:
+		_render_map()
+		_refresh_info()
+		_refresh_soldiers_label()
 
 func _input(event: InputEvent) -> void:
 	if _in_combat or not _waiting_for_input:
