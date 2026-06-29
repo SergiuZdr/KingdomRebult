@@ -7,15 +7,31 @@ extends Area2D
 
 @onready var name_label: Label = $NameLabel
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
+@onready var sprite: Sprite2D = $Sprite2D
 
 func _ready() -> void:
 	name_label.text = building_name
 	input_pickable = true
+	_load_sprite()
 	_update_visual_state()
 	GameState.resources_changed.connect(_update_visual_state)
 
+func _load_sprite() -> void:
+	var path := BuildingData.get_texture_path(building_name)
+	if path == "":
+		return
+	var tex := load(path) as Texture2D
+	if tex == null:
+		return
+	sprite.texture = tex
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.scale = Vector2(2.0, 2.0)
+	sprite.position = Vector2(0, 0)
+
 func _update_visual_state() -> void:
-	if GameState.is_building_built(building_name):
+	var level := GameState.get_building_level(building_name)
+	if level >= 1:
+		# Show only the building name on the world label — level is shown in the popup title
 		name_label.text = building_name
 		modulate = Color(1.0, 1.0, 1.0)
 	else:

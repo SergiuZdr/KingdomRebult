@@ -1,7 +1,7 @@
 # pre_combat_screen.gd
 extends Control
 
-const MAX_COMBAT_SLOTS = 5
+const MAX_COMBAT_SLOTS = 4
 
 var selected_soldiers: Array[SoldierData] = []
 var pending_wave: Array[EnemyData] = []
@@ -12,20 +12,52 @@ signal selection_confirmed(soldiers: Array)
 @onready var soldier_list: VBoxContainer = $Panel/MarginContainer/VBoxContainer/ScrollContainer/SoldierList
 @onready var selected_count: Label = $Panel/MarginContainer/VBoxContainer/Footer/SelectedCount
 @onready var btn_fight: Button = $Panel/MarginContainer/VBoxContainer/Footer/BtnFight
+@onready var background: ColorRect = $Background
+
+var battle_bg: TextureRect
 
 func _ready() -> void:
+	theme = GameTheme.get_theme()
+	btn_fight.theme_type_variation = "Primary"   # crimson CTA
 	btn_fight.pressed.connect(_on_fight_pressed)
 	btn_fight.disabled = true
 	var auto_btn = Button.new()
 	auto_btn.text = "Auto Select Best"
 	auto_btn.custom_minimum_size = Vector2(160, 40)
+	auto_btn.theme_type_variation = "Ghost"
 	auto_btn.pressed.connect(_on_auto_select_pressed)
 	$Panel/MarginContainer/VBoxContainer/Footer.add_child(auto_btn)
 	hide()
 
+# Picks/refreshes the pre-combat background to match the upcoming fight (city
+# defense, dungeon, or dungeon boss). Darker modulate than the in-combat
+# background so the soldier-selection panel stays readable on top of it.
+# The flat Background ColorRect stays underneath as a fallback if the art
+# asset is missing.
+func _refresh_battle_background() -> void:
+	var bg_path := CombatState.get_battle_bg_path()
+	if not ResourceLoader.exists(bg_path):
+		if battle_bg != null:
+			battle_bg.visible = false
+		return
+
+	if battle_bg == null:
+		battle_bg = TextureRect.new()
+		battle_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		battle_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		battle_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		battle_bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		battle_bg.modulate = Color(0.45, 0.45, 0.5)
+		add_child(battle_bg)
+		move_child(battle_bg, background.get_index() + 1)
+
+	battle_bg.texture = load(bg_path) as Texture2D
+	battle_bg.visible = true
+
 func open(enemy_wave: Array[EnemyData]) -> void:
 	pending_wave = enemy_wave
 	selected_soldiers.clear()
+	_refresh_battle_background()
 
 	var enemy_names = {}
 	for e in enemy_wave:
@@ -52,14 +84,14 @@ func _build_soldier_list() -> void:
 	if DungeonState.active and not DungeonState.soldiers_in_dungeon.is_empty():
 		var exp_lbl = Label.new()
 		exp_lbl.text = "%d soldier(s) are in the dungeon and unavailable." % DungeonState.soldiers_in_dungeon.size()
-		exp_lbl.add_theme_color_override("font_color", Color(0.9, 0.75, 0.3))
+		exp_lbl.add_theme_color_override("font_color", GameTheme.LEATHER)
 		exp_lbl.add_theme_font_size_override("font_size", 12)
 		soldier_list.add_child(exp_lbl)
 
 	if alive.is_empty():
 		var lbl = Label.new()
 		lbl.text = "No soldiers available! The city is defenseless..."
-		lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
+		lbl.add_theme_color_override("font_color", GameTheme.CRIMSON)
 		soldier_list.add_child(lbl)
 		return
 
@@ -73,16 +105,22 @@ func _make_select_card(soldier: SoldierData) -> PanelContainer:
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var style_normal = StyleBoxFlat.new()
-	style_normal.bg_color = Color(0.1, 0.12, 0.18)
-	style_normal.border_color = Color(0.3, 0.35, 0.5)
+	style_normal.bg_color = GameTheme.VELLUM
+	style_normal.border_color = GameTheme.IRON
 	style_normal.set_border_width_all(1)
-	style_normal.set_corner_radius_all(6)
+	style_normal.content_margin_left = 10
+	style_normal.content_margin_right = 10
+	style_normal.content_margin_top = 6
+	style_normal.content_margin_bottom = 6
 
 	var style_selected = StyleBoxFlat.new()
-	style_selected.bg_color = Color(0.08, 0.22, 0.12)
-	style_selected.border_color = Color(0.2, 0.8, 0.4)
+	style_selected.bg_color = GameTheme.VELLUM.lerp(GameTheme.MOSS, 0.22)
+	style_selected.border_color = GameTheme.MOSS
 	style_selected.set_border_width_all(2)
-	style_selected.set_corner_radius_all(6)
+	style_selected.content_margin_left = 10
+	style_selected.content_margin_right = 10
+	style_selected.content_margin_top = 6
+	style_selected.content_margin_bottom = 6
 
 	panel.add_theme_stylebox_override("panel", style_normal)
 
@@ -113,7 +151,7 @@ func _make_select_card(soldier: SoldierData) -> PanelContainer:
 		soldier.armor.item_name if soldier.armor else "None"
 	]
 	stats_lbl.add_theme_font_size_override("font_size", 12)
-	stats_lbl.add_theme_color_override("font_color", Color(0.7, 0.75, 0.85))
+	stats_lbl.add_theme_color_override("font_color", GameTheme.INK_SOFT)
 	vbox.add_child(stats_lbl)
 
 	checkbox.toggled.connect(func(pressed: bool):

@@ -1,3 +1,22 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+
+# OS / editor junk
+.DS_Store
+*.tmp
+
+# Godot engine binary (do not commit the editor itself)
+Godot.app/
+
+# AI assistant tooling & working files (kept locally, never published)
+.claude/
+.codex/
+CLAUDE.md
+AGENTS.md
+graphify-out/
+_verify_shots/
+_import_*.txt
+
+# Private docs / thesis (not part of the game)
+docs/

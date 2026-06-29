@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1_weapon_forge")
 building_id = "weapon_forge"
-building_name = "Weapon Forge"
-description = "Consume steel and gold to keep military production running."
+building_name = "Blacksmith"
+description = "Consume steel and gold to keep military production running. Higher levels unlock better weapons."
 category = 2
 cost_gold = 140
 cost_wood = 70
@@ -16,3 +16,8 @@ workforce_required = 1
 max_level = 3
 produces_gold = -10
 produces_steel = -2
+upgrade_cost_gold = PackedInt32Array(80, 160)
+upgrade_cost_iron = PackedInt32Array(15, 30)
+upgrade_cost_stone = PackedInt32Array(50, 100)
+upgrade_cost_steel = PackedInt32Array(0, 15)
+upgrade_notes = PackedStringArray("Unlocks Steel-tier crafting", "15% chance crafted item upgrades one quality tier")

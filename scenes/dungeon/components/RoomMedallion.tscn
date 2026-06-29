@@ -1,0 +1,24 @@
+[gd_scene format=3 uid="uid://room_medallion_v1"]
+
+[ext_resource type="Script" path="res://scenes/dungeon/components/room_medallion.gd" id="1_rmscript"]
+
+[node name="RoomMedallion" type="Control"]
+custom_minimum_size = Vector2(80, 80)
+script = ExtResource("1_rmscript")
+
+[node name="Icon" type="TextureRect" parent="."]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 64.0
+offset_bottom = 64.0
+texture_filter = 1
+mouse_filter = 2
+stretch_mode = 5
+
+[node name="Hit" type="Button" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+flat = true

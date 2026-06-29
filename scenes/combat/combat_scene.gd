@@ -1,9 +1,16 @@
 # combat_scene.gd
 extends Control
 
+const UNIT_CARD_SCENE := preload("res://scenes/ui/unit_card.tscn")
+
+# Fixed slot dimensions for combat unit cards. Cards are placed at absolute
+# positions (not flowed by a container) so a unit's card never shifts when a
+# neighbouring unit dies and swaps to its death sprite.
+const UNIT_CARD_SIZE := Vector2(140, 230)
+
 var turn_order_container: HBoxContainer
-@onready var allies_row: HBoxContainer = $AlliesRow
-@onready var enemies_row: HBoxContainer = $EnemiesRow
+@onready var allies_row: Control = $AlliesRow
+@onready var enemies_row: Control = $EnemiesRow
 @onready var turn_label: Label = $TurnLabel
 @onready var skill_buttons_container: HBoxContainer = $ActionPanel/MarginContainer/VBoxContainer/SkillButtonsContainer
 @onready var log_scroll: ScrollContainer = $LogPanel/ScrollContainer
@@ -12,34 +19,59 @@ var turn_order_container: HBoxContainer
 var btn_auto: Button
 var btn_speed_2x: Button
 var combat_speed: float = 1.0
+var battle_bg: TextureRect
 
 func _ready() -> void:
+	# The .tscn root ships with a tiny 40x40 rect (legacy from before anchored
+	# children existed). Anchored children (e.g. top_right_box below, and the
+	# dynamically-created battle_bg) resolve their PRESET-based anchors against
+	# this root's rect, so it must be full-rect for them to land correctly.
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# The root itself has no input handling — let clicks pass through to
+	# whatever sits beneath it in the hub when this scene isn't actively
+	# capturing input. Children (buttons, unit cards, panels) set their own
+	# mouse_filter and still receive input normally.
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	theme = GameTheme.get_theme()
+	# TurnLabel floats on the dark battlefield (not a parchment panel) — keep it light.
+	turn_label.add_theme_color_override("font_color", GameTheme.PARCHMENT)
 	_build_turn_order_bar()
 	$ActionPanel/MarginContainer/VBoxContainer/HBoxButtons/BtnAttack.pressed.connect(_on_attack_pressed)
 	$ActionPanel/MarginContainer/VBoxContainer/HBoxButtons/BtnDefend.pressed.connect(_on_defend_pressed)
 
-	# Auto button — top-right corner, standalone
-	btn_auto = Button.new()
-	btn_auto.text = "Auto: OFF"
-	btn_auto.custom_minimum_size = Vector2(100, 36)
-	btn_auto.position = Vector2(1100, 10)
-	btn_auto.pressed.connect(_on_auto_toggle_pressed)
-	add_child(btn_auto)
+	# Auto / 2x speed buttons — anchored top-right, grouped in an HBoxContainer
+	var top_right_box = HBoxContainer.new()
+	top_right_box.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	top_right_box.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	top_right_box.offset_left = -210.0
+	top_right_box.offset_top = 10.0
+	top_right_box.offset_right = -10.0
+	top_right_box.offset_bottom = 46.0
+	top_right_box.add_theme_constant_override("separation", 8)
+	add_child(top_right_box)
 
-	# 2x Speed button — top-right corner, next to Auto
+	# 2x Speed button — left of Auto
 	btn_speed_2x = Button.new()
 	btn_speed_2x.text = "2x OFF"
 	btn_speed_2x.custom_minimum_size = Vector2(90, 36)
-	btn_speed_2x.position = Vector2(1000, 10)
+	btn_speed_2x.theme_type_variation = "Ghost"
 	btn_speed_2x.pressed.connect(_on_speed_toggle_pressed)
-	add_child(btn_speed_2x)
+	top_right_box.add_child(btn_speed_2x)
+
+	# Auto button — rightmost
+	btn_auto = Button.new()
+	btn_auto.text = "Auto: OFF"
+	btn_auto.custom_minimum_size = Vector2(100, 36)
+	btn_auto.theme_type_variation = "Ghost"
+	btn_auto.pressed.connect(_on_auto_toggle_pressed)
+	top_right_box.add_child(btn_auto)
 
 	CombatState.combat_started.connect(_on_combat_started)
 	CombatState.turn_changed.connect(_on_turn_changed)
 	CombatState.unit_acted.connect(_on_unit_acted)
 	CombatState.combat_ended.connect(_on_combat_ended)
-	CombatState.game_over.connect(_on_game_over)
 	CombatState.dungeon_combat_ended.connect(_on_dungeon_fight_ended)
+	CombatState.spectator_combat_ended.connect(_on_spectator_fight_ended)
 	hide()
 
 var ally_cards: Array = []
@@ -49,11 +81,14 @@ var enemy_cards: Array = []
 var unit_hp_bars: Dictionary = {}
 var unit_hp_labels: Dictionary = {}
 var unit_combat_cards: Dictionary = {}  # unit -> card din AlliesRow/EnemiesRow
+var unit_portraits: Dictionary = {}     # unit -> TextureRect
 
-var selected_target = null
+var selected_target: Variant = null
 
-var _replay_mode: bool = false
-var _replay_on_done: Callable = Callable()
+# Emitted once a live "watch the city defend itself" battle has finished its
+# 1s last-blow pause and the combat scene has been hidden. hub_screen connects
+# to this (one-shot) when it starts the spectator battle.
+signal spectator_battle_finished(victory: bool)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible or not CombatState.active:
@@ -61,14 +96,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_A:
-				_on_auto_toggle_pressed()
+				if not CombatState.spectator_mode:
+					_on_auto_toggle_pressed()
 			KEY_F:
 				_on_speed_toggle_pressed()
 
 func _build_turn_order_bar() -> void:
 	var bg = PanelContainer.new()
+	bg.theme_type_variation = "Sunken"
 	bg.position = Vector2(40, 60)
-	bg.custom_minimum_size = Vector2(1200, 50)
+	bg.custom_minimum_size = Vector2(1120, 44)
 	add_child(bg)
 	var hbox = HBoxContainer.new()
 	hbox.add_theme_constant_override("separation", 6)
@@ -88,10 +125,59 @@ func _on_combat_started() -> void:
 	# Reset speed & auto button visuals to match CombatState resets
 	combat_speed = 1.0
 	btn_speed_2x.text = "2x OFF"
-	btn_auto.text = "Auto: OFF"
+	_refresh_battle_background()
 	_build_units()
 	_refresh_turn_order_bar()
-	_add_log("— Combat started —", Color(0.89, 0.78, 0.38))
+
+	var attack_btn: Button = $ActionPanel/MarginContainer/VBoxContainer/HBoxButtons/BtnAttack
+	var defend_btn: Button = $ActionPanel/MarginContainer/VBoxContainer/HBoxButtons/BtnDefend
+
+	if CombatState.spectator_mode:
+		# Live city-defense battle: auto-battle is forced on and locked, manual
+		# actions and target selection are disabled. The 2x speed button stays
+		# usable so the player can speed through the fight.
+		CombatState.auto_battle = true
+		btn_auto.text = "Auto: ON"
+		btn_auto.disabled = true
+		attack_btn.disabled = true
+		defend_btn.disabled = true
+		_add_log("— The city defends itself! —", GameTheme.LEATHER)
+		turn_label.text = "City Defense"
+	else:
+		btn_auto.text = "Auto: OFF"
+		btn_auto.disabled = false
+		attack_btn.disabled = false
+		defend_btn.disabled = false
+		_add_log("— Combat started —", GameTheme.LEATHER)
+
+# Picks/refreshes the battle background for the current fight (city defense,
+# dungeon, or dungeon boss). The CombatScene node is reused across fights, so
+# this is called each time combat starts rather than only in _ready(). The
+# flat ColorRect stays underneath as a fallback if the art asset is missing.
+func _refresh_battle_background() -> void:
+	var bg_path := CombatState.get_battle_bg_path()
+	if not ResourceLoader.exists(bg_path):
+		if battle_bg != null:
+			battle_bg.visible = false
+		return
+
+	if battle_bg == null:
+		battle_bg = TextureRect.new()
+		battle_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		# Extend the rect above the screen so the art shifts up: the ground in
+		# the battle backgrounds sits low (~y520 in the dungeon/boss art), and
+		# this raises it to ~y500 on screen so unit sprites stand on it.
+		battle_bg.offset_top = -100.0
+		battle_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		battle_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		battle_bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		battle_bg.modulate = Color(0.8, 0.8, 0.85)
+		var color_rect: Node = $ColorRect
+		add_child(battle_bg)
+		move_child(battle_bg, color_rect.get_index() + 1)
+
+	battle_bg.texture = load(bg_path) as Texture2D
+	battle_bg.visible = true
 
 func _build_units() -> void:
 	for c in allies_row.get_children(): c.queue_free()
@@ -102,90 +188,151 @@ func _build_units() -> void:
 	unit_hp_labels.clear()
 	unit_combat_cards.clear()
 
-	for soldier in CombatState.allies:
+	for i in CombatState.allies.size():
+		var soldier = CombatState.allies[i]
 		var card = _make_unit_card(soldier, true)
+		_place_card_in_slot(card, allies_row, i, CombatState.allies.size())
 		allies_row.add_child(card)
 		ally_cards.append(card)
 
-	for enemy in CombatState.enemies:
+	for i in CombatState.enemies.size():
+		var enemy = CombatState.enemies[i]
 		var card = _make_unit_card(enemy, false)
+		_place_card_in_slot(card, enemies_row, i, CombatState.enemies.size())
 		enemies_row.add_child(card)
 		enemy_cards.append(card)
 
+# Assigns a card a fixed, non-flowing position within its row. The row's
+# width is divided into `slot_count` equal slots and the (fixed-size) card is
+# centered within its slot. Because this runs once per unit at combat start
+# and slot_count never changes mid-fight (death only dims/swaps a card's
+# sprite, it never removes it from the row), every living card keeps its slot
+# for the whole battle — a neighbour dying cannot push it off-screen.
+func _place_card_in_slot(card: PanelContainer, row: Control, index: int, slot_count: int) -> void:
+	var row_width: float = row.size.x
+	if row_width <= 0.0:
+		row_width = row.get_rect().size.x
+	var slot_width: float = row_width / float(max(slot_count, 1))
+	var x: float = index * slot_width + (slot_width - UNIT_CARD_SIZE.x) * 0.5
+	card.position = Vector2(x, 0.0)
+
+func _enemy_slug(enemy_slug_name: String) -> String:
+	var base := enemy_slug_name.split(" #")[0]
+	base = base.replace("[Legion] ", "")
+	return base.to_lower().replace(" ", "_")
+
+# Unit art ships on canvases with large transparent margins (the visible
+# sprite is roughly half the PNG), which made units render small and float
+# above the ground. This crops each texture to its used pixels horizontally
+# and to the feet line at the bottom — the top margin is kept so that
+# KEEP_ASPECT_CENTERED scaling in the portrait box stays height-constrained
+# and the visible feet land exactly on the box's bottom edge.
+var _battle_sprite_cache: Dictionary = {}
+
+func _load_battle_sprite(path: String) -> Texture2D:
+	if _battle_sprite_cache.has(path):
+		return _battle_sprite_cache[path]
+	var result: Texture2D = null
+	if ResourceLoader.exists(path):
+		var tex := load(path) as Texture2D
+		if tex != null:
+			result = tex
+			var img := tex.get_image()
+			if img != null:
+				var used := img.get_used_rect()
+				if used.size.x > 0 and used.size.y > 0:
+					var atlas := AtlasTexture.new()
+					atlas.atlas = tex
+					atlas.region = Rect2(used.position.x, 0, used.size.x, used.end.y)
+					result = atlas
+	_battle_sprite_cache[path] = result
+	return result
+
 func _get_unit_portrait(unit, is_ally: bool) -> Texture2D:
-	var path := ""
 	if is_ally:
-		match (unit as SoldierData).soldier_class:
-			"Warrior": path = "res://Downloaded Game Assets/Characters/Warrior/GandalfHardcore Warrior.png"
-			"Archer":  path = "res://Downloaded Game Assets/Characters/Archer/GandalfHardcore Archer sheet.png"
-			"Mage":    path = "res://Downloaded Game Assets/Characters/Wizard/Purple Wizard sheet.png"
-			"Knight":  path = "res://Downloaded Game Assets/Characters/Knight Run and Portrait/Knight Portrait 64x64.png"
-			"Rogue":   path = "res://Downloaded Game Assets/Characters/Archer/GandalfHardcore Archer black sheet.png"
+		var soldier := unit as SoldierData
+		var cls = soldier.soldier_class.to_lower()
+		var variant = soldier.sprite_variant if soldier.sprite_variant > 1 else 0
+		var suffix = ("_%d" % soldier.sprite_variant) if variant > 0 else ""
+		var tex := _load_battle_sprite("res://assets/soldiers/%s/idle%s.png" % [cls, suffix])
+		if tex == null:
+			tex = _load_battle_sprite("res://assets/soldiers/%s/idle.png" % cls)
+		return tex
 	else:
 		var enemy := unit as EnemyData
-		if enemy.hp_max > 100:
-			path = "res://Downloaded Game Assets/Characters/ENEMIES/Orc sheet.png"
-		else:
-			var base = enemy.enemy_name.split(" ")[0]
-			match base:
-				"Goblin": path = "res://Downloaded Game Assets/Characters/ENEMIES/Goblins/Portrait 64x64.png"
-				"Orc":    path = "res://Downloaded Game Assets/Characters/ENEMIES/Orc sheet.png"
-				"Wolf":   path = "res://Downloaded Game Assets/Characters/ENEMIES/Goblins/Portrait 64x64.png"
-				"Enemy":  path = "res://Downloaded Game Assets/Characters/Knight Run and Portrait/Knight Portrait 64x64.png"
-	if path == "":
-		return null
-	return load(path) as Texture2D
+		var slug := _enemy_slug(enemy.enemy_name)
+		return _load_battle_sprite("res://assets/enemies/%s/idle.png" % slug)
+
+func _set_unit_portrait_state(unit, state: String) -> void:
+	if not unit_portraits.has(unit):
+		return
+	if unit is SoldierData:
+		var soldier := unit as SoldierData
+		var cls = soldier.soldier_class.to_lower()
+		var suffix = ("_%d" % soldier.sprite_variant) if soldier.sprite_variant > 1 else ""
+		var tex := _load_battle_sprite("res://assets/soldiers/%s/%s%s.png" % [cls, state, suffix])
+		if tex == null:
+			tex = _load_battle_sprite("res://assets/soldiers/%s/%s.png" % [cls, state])
+		if tex != null:
+			unit_portraits[unit].texture = tex
+	elif unit is EnemyData:
+		var enemy := unit as EnemyData
+		var slug := _enemy_slug(enemy.enemy_name)
+		var tex := _load_battle_sprite("res://assets/enemies/%s/%s.png" % [slug, state])
+		if tex != null:
+			unit_portraits[unit].texture = tex
+	return
 
 func _make_unit_card(unit, is_ally: bool) -> PanelContainer:
-	var panel = PanelContainer.new()
-	panel.custom_minimum_size = Vector2(110, 160)
+	var card := UNIT_CARD_SCENE.instantiate() as PanelContainer
+	card.custom_minimum_size = UNIT_CARD_SIZE
+	# AlliesRow/EnemiesRow are plain Controls (not containers), so the card's
+	# size must be set explicitly — custom_minimum_size alone has no effect
+	# without a layout container to apply it.
+	card.size = UNIT_CARD_SIZE
 
-	var vbox = VBoxContainer.new()
-	panel.add_child(vbox)
+	var portrait: TextureRect = card.get_node("VBoxContainer/Portrait")
+	var name_lbl: Label = card.get_node("VBoxContainer/NameLabel")
+	var hp_lbl: Label = card.get_node("VBoxContainer/HPLabel")
+	var hp_bar: ProgressBar = card.get_node("VBoxContainer/HPBar")
 
-	var portrait_tex = _get_unit_portrait(unit, is_ally)
+	var portrait_tex := _get_unit_portrait(unit, is_ally)
 	if portrait_tex != null:
-		var portrait = TextureRect.new()
 		portrait.texture = portrait_tex
-		portrait.custom_minimum_size = Vector2(90, 56)
-		portrait.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-		portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		vbox.add_child(portrait)
+	else:
+		portrait.visible = false
 
-	var name_lbl = Label.new()
 	name_lbl.text = unit.soldier_name if is_ally else unit.enemy_name
-	name_lbl.add_theme_font_size_override("font_size", 11)
-	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(name_lbl)
 
-	var hp_lbl = Label.new()
 	hp_lbl.text = "%d/%d" % [unit.hp_current, unit.hp_max]
-	hp_lbl.add_theme_font_size_override("font_size", 11)
-	hp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(hp_lbl)
 
-	var hp_bar = ProgressBar.new()
-	hp_bar.min_value = 0
+	# The card panel is transparent (units stand directly on the battlefield),
+	# so the floating name/HP text needs light ink + a dark outline to stay
+	# readable against the background art.
+	for lbl in [name_lbl, hp_lbl]:
+		lbl.add_theme_color_override("font_color", GameTheme.PARCHMENT)
+		lbl.add_theme_color_override("font_outline_color", Color(0.08, 0.07, 0.06))
+		lbl.add_theme_constant_override("outline_size", 4)
+
 	hp_bar.max_value = unit.hp_max
 	hp_bar.value = unit.hp_current
-	hp_bar.show_percentage = false
-	hp_bar.custom_minimum_size = Vector2(90, 14)
-	vbox.add_child(hp_bar)
 
-	# Salveaza in dictionarul de combat cards
+	# Store references for per-frame updates
 	unit_hp_bars[unit] = hp_bar
 	unit_hp_labels[unit] = hp_lbl
-	unit_combat_cards[unit] = panel  # ← combat cards separat
+	unit_combat_cards[unit] = card
+	unit_portraits[unit] = portrait
 
 	if not is_ally:
-		panel.gui_input.connect(func(event):
+		card.gui_input.connect(func(event: InputEvent):
+			if CombatState.spectator_mode:
+				return
 			if event is InputEventMouseButton and event.pressed:
-				_select_target(unit, panel)
+				_select_target(unit, card)
 		)
 
-	panel.set_meta("unit", unit)
-	return panel
+	card.set_meta("unit", unit)
+	return card
 
 func _refresh_turn_order_bar() -> void:
 	for c in turn_order_container.get_children():
@@ -206,7 +353,8 @@ func _refresh_turn_order_bar() -> void:
 		pill.add_child(lbl)
 
 		if i == CombatState.current_unit_index:
-			pill.self_modulate = Color(1.0, 0.9, 0.2)
+			# Muted aged gold — the bright yellow read as noise on parchment.
+			pill.self_modulate = Color(0.83, 0.69, 0.27)
 		elif is_ally:
 			pill.self_modulate = Color(0.3, 0.8, 0.5)
 		else:
@@ -221,9 +369,11 @@ func _select_target(enemy: EnemyData, card: PanelContainer) -> void:
 	if not enemy.is_alive():
 		return
 	selected_target = enemy
+	# Cards have a transparent panel, so tints go on `modulate` (sprite +
+	# labels) — `self_modulate` would only color the invisible stylebox.
 	for c in enemy_cards:
-		c.self_modulate = Color(1, 1, 1)
-	card.self_modulate = Color(1.4, 0.6, 0.6)
+		c.modulate = Color(1, 1, 1)
+	card.modulate = Color(1.4, 0.6, 0.6)
 
 func _on_turn_changed(entry: Dictionary) -> void:
 	var unit = entry.unit
@@ -232,7 +382,12 @@ func _on_turn_changed(entry: Dictionary) -> void:
 	turn_label.text = "Active: %s" % unit_name
 
 	for c in ally_cards:
-		c.self_modulate = Color(1.5, 1.5, 0.5) if c.get_meta("unit") == unit else Color(1, 1, 1)
+		# Active unit: subtle warm brightening; inactive units dim slightly so
+		# the contrast does the work instead of a hard yellow tint.
+		if c.get_meta("unit") == unit:
+			c.modulate = Color(1.18, 1.14, 1.0)
+		else:
+			c.modulate = Color(0.82, 0.82, 0.85)
 
 	_refresh_turn_order_bar()
 	_refresh_all_cards()
@@ -309,25 +464,25 @@ func _refresh_all_cards() -> void:
 		elif pct > 0.25:
 			hp_bar.modulate = Color(0.9, 0.7, 0.1)
 		else:
-			hp_bar.modulate = Color(0.9, 0.2, 0.2)
+			hp_bar.modulate = GameTheme.WAX
 
 		if not unit.is_alive():
-			card.self_modulate = Color(0.4, 0.4, 0.4)
+			card.modulate = Color(0.4, 0.4, 0.4)
+			_set_unit_portrait_state(unit, "death")
 
 # --- ANIMATII — folosesc unit_combat_cards, nu turn order pills ---
 
 func _play_damage_animation(unit) -> void:
-	print("Playing damage animation for: ", unit.enemy_name if unit is EnemyData else unit.soldier_name)
-
 	if not unit_combat_cards.has(unit):
-		print("Unit not found in unit_combat_cards!")
-
 		return
 	var card = unit_combat_cards[unit]
-	print("Card position: ", card.position, " global: ", card.global_position)
+	_set_unit_portrait_state(unit, "hurt")
 	var tween = create_tween()
-	tween.tween_property(card, "self_modulate", Color(1.5, 0.2, 0.2), 0.08)
-	tween.tween_property(card, "self_modulate", Color(1, 1, 1), 0.25)
+	tween.tween_property(card, "modulate", Color(1.5, 0.2, 0.2), 0.08)
+	tween.tween_property(card, "modulate", Color(1, 1, 1), 0.25)
+	tween.tween_callback(func():
+		_set_unit_portrait_state(unit, "idle" if unit.is_alive() else "death")
+	)
 	var original_pos = card.position
 	var shake = create_tween()
 	shake.tween_property(card, "position", original_pos + Vector2(6, 0), 0.05)
@@ -342,9 +497,11 @@ func _play_attack_animation(unit) -> void:
 	var original_pos = card.position
 	var is_ally = unit is SoldierData
 	var lunge_dir = Vector2(30, 0) if is_ally else Vector2(-30, 0)
+	_set_unit_portrait_state(unit, "attack")
 	var tween = create_tween()
 	tween.tween_property(card, "position", original_pos + lunge_dir, 0.1)
 	tween.tween_property(card, "position", original_pos, 0.15)
+	tween.tween_callback(func(): _set_unit_portrait_state(unit, "idle"))
 
 func _show_damage_number(unit, amount: int, is_miss: bool) -> void:
 	if not unit_combat_cards.has(unit):
@@ -354,7 +511,7 @@ func _show_damage_number(unit, amount: int, is_miss: bool) -> void:
 	lbl.text = "MISS" if is_miss else "-%d" % amount
 	lbl.add_theme_font_size_override("font_size", 20)
 	lbl.add_theme_color_override("font_color",
-		Color(0.7, 0.7, 0.7) if is_miss else Color(0.95, 0.2, 0.2)
+		GameTheme.INK_SOFT if is_miss else GameTheme.WAX
 	)
 	lbl.position = card.global_position + Vector2(30, -10)
 	lbl.z_index = 10
@@ -370,7 +527,7 @@ func _on_unit_acted(log_line: String) -> void:
 	_refresh_turn_order_bar()
 
 	if "attacks" in log_line:
-		var is_miss = "MISS" in log_line
+		var is_miss = "MISS" in log_line or "DODGE" in log_line
 		var dmg = 0
 		if not is_miss:
 			var regex = RegEx.new()
@@ -440,7 +597,7 @@ func _on_unit_acted(log_line: String) -> void:
 					if attacker_found and target_found:
 						break
 
-func _add_log(text: String, color: Color = Color(0.6, 0.7, 0.8)) -> void:
+func _add_log(text: String, color: Color = GameTheme.INK_SOFT) -> void:
 	var lbl = Label.new()
 	lbl.text = text
 	lbl.add_theme_color_override("font_color", color)
@@ -454,68 +611,67 @@ func _add_log(text: String, color: Color = Color(0.6, 0.7, 0.8)) -> void:
 
 func _on_attack_pressed() -> void:
 	if selected_target == null:
-		_add_log("Select a target first!", Color(0.9, 0.4, 0.4))
+		_add_log("Select a target first!", GameTheme.WAX)
 		return
 	if CombatState.turn_order.is_empty() or CombatState.current_unit_index >= CombatState.turn_order.size():
 		return
 	if not CombatState.turn_order[CombatState.current_unit_index].is_ally:
-		_add_log("Not your turn!", Color(0.9, 0.4, 0.4))
+		_add_log("Not your turn!", GameTheme.WAX)
 		return
 	CombatState.player_act("Attack", selected_target)
 	selected_target = null
 	for c in enemy_cards:
-		c.self_modulate = Color(1, 1, 1)
+		c.modulate = Color(1, 1, 1)
 
 func _on_defend_pressed() -> void:
 	if CombatState.turn_order.is_empty() or CombatState.current_unit_index >= CombatState.turn_order.size():
 		return
 	if not CombatState.turn_order[CombatState.current_unit_index].is_ally:
-		_add_log("Not your turn!", Color(0.9, 0.4, 0.4))
+		_add_log("Not your turn!", GameTheme.WAX)
 		return
 	CombatState.player_act("Defend", null)
 
 func _on_skill_pressed(skill: SkillData) -> void:
-	if selected_target == null:
-		_add_log("Select a target first!", Color(0.9, 0.4, 0.4))
-		return
 	if CombatState.turn_order.is_empty() or CombatState.current_unit_index >= CombatState.turn_order.size():
 		return
 	if not CombatState.turn_order[CombatState.current_unit_index].is_ally:
-		_add_log("Not your turn!", Color(0.9, 0.4, 0.4))
+		_add_log("Not your turn!", GameTheme.WAX)
+		return
+	# Only single-target offensive skills need a selected enemy.
+	if skill.target_mode == SkillData.TargetMode.ENEMY_SINGLE and selected_target == null:
+		_add_log("Select a target first!", GameTheme.WAX)
 		return
 	CombatState.player_act("Skill", {skill = skill, enemy_target = selected_target})
 	selected_target = null
 	for c in enemy_cards:
-		c.self_modulate = Color(1, 1, 1)
+		c.modulate = Color(1, 1, 1)
 
 func _refresh_skill_buttons() -> void:
 	if skill_buttons_container == null:
-		print("skill_buttons_container is null!")
 		return
 
 	for child in skill_buttons_container.get_children():
 		child.queue_free()
 
+	# Spectator city-defense battles are fully auto-resolved — no skill buttons.
+	if CombatState.spectator_mode:
+		return
+
 	if CombatState.turn_order.is_empty():
-		print("turn_order is empty")
 		return
 
 	if CombatState.current_unit_index >= CombatState.turn_order.size():
-		print("index out of range")
 		return
 
 	var entry = CombatState.turn_order[CombatState.current_unit_index]
 	if not entry.is_ally:
-		print("current unit is not an ally, skipping skill buttons")
 		return
 
 	var actor: SoldierData = entry.unit
-	print("Actor: ", actor.soldier_name, " class: ", actor.soldier_class, " skills: ", actor.unlocked_skills.size())
 
 	for skill in actor.get_active_skills():
-		print("Adding skill button: ", skill.skill_name)
 		var btn = Button.new()
-		var cooldown = actor.active_skill_cooldowns.get(skill.skill_id, 0)
+		var cooldown: int = actor.active_skill_cooldowns.get(skill.skill_id, 0)
 		if cooldown > 0:
 			btn.text = "%s\n(CD: %d)" % [skill.skill_name, cooldown]
 			btn.disabled = true
@@ -533,9 +689,9 @@ func _on_combat_ended(victory: bool) -> void:
 	if victory:
 		_add_log("— Victory! +%d Gold, +%d XP —" % [
 			CombatState.gold_earned, CombatState.xp_earned
-		], Color(0.3, 1.0, 0.3))
+		], GameTheme.MOSS)
 	else:
-		_add_log("— Defeat! Your soldiers have fallen. —", Color(0.9, 0.2, 0.2))
+		_add_log("— Defeat! Your soldiers have fallen. —", GameTheme.WAX)
 
 	await get_tree().process_frame
 	await get_tree().create_timer(1.0).timeout
@@ -572,7 +728,7 @@ func _show_battle_end_screen(victory: bool) -> void:
 	title.text = "VICTORY!" if victory else "DEFEAT!"
 	title.add_theme_font_size_override("font_size", 42)
 	title.add_theme_color_override("font_color",
-		Color(0.2, 1.0, 0.3) if victory else Color(0.95, 0.2, 0.2)
+		GameTheme.MOSS if victory else GameTheme.WAX
 	)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
@@ -582,14 +738,14 @@ func _show_battle_end_screen(victory: bool) -> void:
 		var gold_lbl = Label.new()
 		gold_lbl.text = "+%d Gold" % CombatState.gold_earned
 		gold_lbl.add_theme_font_size_override("font_size", 20)
-		gold_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+		gold_lbl.add_theme_color_override("font_color", GameTheme.LEATHER)
 		gold_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vbox.add_child(gold_lbl)
 
 		var xp_lbl = Label.new()
 		xp_lbl.text = "+%d XP" % CombatState.xp_earned
 		xp_lbl.add_theme_font_size_override("font_size", 18)
-		xp_lbl.add_theme_color_override("font_color", Color(0.4, 0.8, 1.0))
+		xp_lbl.add_theme_color_override("font_color", GameTheme.CRIMSON)
 		xp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vbox.add_child(xp_lbl)
 
@@ -599,7 +755,7 @@ func _show_battle_end_screen(victory: bool) -> void:
 				var lvl_lbl = Label.new()
 				lvl_lbl.text = "Level Up! %s" % soldier_name
 				lvl_lbl.add_theme_font_size_override("font_size", 15)
-				lvl_lbl.add_theme_color_override("font_color", Color(1.0, 1.0, 0.4))
+				lvl_lbl.add_theme_color_override("font_color", GameTheme.LEATHER)
 				lvl_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 				vbox.add_child(lvl_lbl)
 
@@ -609,14 +765,14 @@ func _show_battle_end_screen(victory: bool) -> void:
 		var dead_header = Label.new()
 		dead_header.text = "Fallen soldiers:"
 		dead_header.add_theme_font_size_override("font_size", 15)
-		dead_header.add_theme_color_override("font_color", Color(0.7, 0.5, 0.5))
+		dead_header.add_theme_color_override("font_color", GameTheme.INK_SOFT)
 		dead_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vbox.add_child(dead_header)
 		for s in dead_soldiers:
 			var dead_lbl = Label.new()
 			dead_lbl.text = s.soldier_name
 			dead_lbl.add_theme_font_size_override("font_size", 13)
-			dead_lbl.add_theme_color_override("font_color", Color(0.8, 0.3, 0.3))
+			dead_lbl.add_theme_color_override("font_color", GameTheme.CRIMSON)
 			dead_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			vbox.add_child(dead_lbl)
 
@@ -630,9 +786,22 @@ func _show_battle_end_screen(victory: bool) -> void:
 		for child in log_container.get_children():
 			child.queue_free()
 		CombatState.combat_log.clear()
+		hide()
+		if GameState.city_walls <= 0:
+			# City defense lost and walls hit 0 — show "DEFEAT!" first (above),
+			# then the city-fallen game-over screen instead of the recap.
+			var hub: Node = get_tree().get_first_node_in_group("city_view")
+			if hub != null and hub.has_method("_show_city_fallen_overlay"):
+				hub._show_city_fallen_overlay()
+			return
+		if GameState.game_won_achieved:
+			# The final boss wave was just won — show the victory screen now
+			# that the "VICTORY!" popup has been dismissed. The run is over,
+			# so skip turn_ended/recap_ready entirely.
+			GameState.announce_game_won_if_pending()
+			return
 		GameState.emit_signal("turn_ended", GameState.current_turn)
 		GameState.emit_signal("recap_ready")
-		hide()
 	)
 	vbox.add_child(continue_btn)
 
@@ -659,13 +828,21 @@ func _show_dungeon_fight_result(victory: bool) -> void:
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.add_child(bg)
 
+	# Framed parchment panel (matches recap/victory) instead of bare centered text.
+	var panel = PanelContainer.new()
+	panel.theme = GameTheme.get_theme()
+	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	panel.custom_minimum_size = Vector2(420, 240)
+	panel.position -= Vector2(210, 120)
+	var panel_frame = PixelUI.parchment_window_stylebox(22)
+	if panel_frame != null:
+		panel.add_theme_stylebox_override("panel", panel_frame)
+	root.add_child(panel)
+
 	var vbox = VBoxContainer.new()
-	vbox.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	vbox.custom_minimum_size = Vector2(380, 220)
-	vbox.position -= Vector2(190, 110)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	vbox.add_theme_constant_override("separation", 14)
-	root.add_child(vbox)
+	panel.add_child(vbox)
 
 	var tween = get_tree().get_root().create_tween()
 	tween.tween_property(root, "modulate:a", 1.0, 0.45)
@@ -674,7 +851,7 @@ func _show_dungeon_fight_result(victory: bool) -> void:
 	title.text = "VICTORY!" if victory else "DEFEAT!"
 	title.add_theme_font_size_override("font_size", 36)
 	title.add_theme_color_override("font_color",
-		Color(0.2, 1.0, 0.3) if victory else Color(0.95, 0.2, 0.2)
+		GameTheme.MOSS if victory else GameTheme.WAX
 	)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
@@ -683,7 +860,7 @@ func _show_dungeon_fight_result(victory: bool) -> void:
 		var gold_lbl = Label.new()
 		gold_lbl.text = "+%d Gold" % CombatState.gold_earned
 		gold_lbl.add_theme_font_size_override("font_size", 18)
-		gold_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+		gold_lbl.add_theme_color_override("font_color", GameTheme.LEATHER)
 		gold_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vbox.add_child(gold_lbl)
 
@@ -693,14 +870,14 @@ func _show_dungeon_fight_result(victory: bool) -> void:
 		var dead_header = Label.new()
 		dead_header.text = "Fallen:"
 		dead_header.add_theme_font_size_override("font_size", 14)
-		dead_header.add_theme_color_override("font_color", Color(0.7, 0.5, 0.5))
+		dead_header.add_theme_color_override("font_color", GameTheme.INK_SOFT)
 		dead_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vbox.add_child(dead_header)
 		for s in dead_soldiers:
 			var dead_lbl = Label.new()
 			dead_lbl.text = s.soldier_name
 			dead_lbl.add_theme_font_size_override("font_size", 13)
-			dead_lbl.add_theme_color_override("font_color", Color(0.8, 0.3, 0.3))
+			dead_lbl.add_theme_color_override("font_color", GameTheme.CRIMSON)
 			dead_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			vbox.add_child(dead_lbl)
 
@@ -719,215 +896,31 @@ func _show_dungeon_fight_result(victory: bool) -> void:
 	)
 	vbox.add_child(continue_btn)
 
-func _on_game_over() -> void:
-	await get_tree().create_timer(1.5).timeout
-	# Clean up combat scene state before showing game over overlay
-	GameState.menu_open = false
-	hide()
+# ---------------------------------------------------------------------------
+# Live city-defense spectator battle — see CombatState.spectator_mode.
+# The fight runs through the normal combat loop with locked controls; once it
+# ends, the last blow stays on screen briefly, then the scene hides itself and
+# hub_screen takes over to show the "City Attacked!" result dialog.
+# ---------------------------------------------------------------------------
+func _on_spectator_fight_ended(victory: bool) -> void:
+	CombatState.auto_battle = false
+	if btn_auto != null:
+		btn_auto.text = "Auto: OFF"
+		btn_auto.disabled = false
+	var attack_btn: Button = $ActionPanel/MarginContainer/VBoxContainer/HBoxButtons/BtnAttack
+	var defend_btn: Button = $ActionPanel/MarginContainer/VBoxContainer/HBoxButtons/BtnDefend
+	attack_btn.disabled = false
+	defend_btn.disabled = false
+
+	_add_log("— Victory! —" if victory else "— Defeat! —", GameTheme.MOSS if victory else GameTheme.WAX)
+	await get_tree().process_frame
+	await get_tree().create_timer(1.0).timeout
+
 	for child in log_container.get_children():
 		child.queue_free()
 	CombatState.combat_log.clear()
-	_show_game_over_screen()
-
-func _show_game_over_screen() -> void:
-	var overlay = CanvasLayer.new()
-	overlay.layer = 10
-	get_tree().get_root().add_child(overlay)
-
-	var root = Control.new()
-	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(root)
-
-	var bg = ColorRect.new()
-	bg.color = Color(0.05, 0.02, 0.02, 0.92)
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	root.add_child(bg)
-
-	var vbox = VBoxContainer.new()
-	vbox.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	vbox.custom_minimum_size = Vector2(500, 300)
-	vbox.position -= Vector2(250, 150)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", 20)
-	root.add_child(vbox)
-
-	var title = Label.new()
-	title.text = "THE CITY HAS FALLEN"
-	title.add_theme_font_size_override("font_size", 36)
-	title.add_theme_color_override("font_color", Color(0.9, 0.2, 0.2))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(title)
-
-	var subtitle = Label.new()
-	subtitle.text = "All your soldiers are dead.\nThe kingdom is lost."
-	subtitle.add_theme_font_size_override("font_size", 18)
-	subtitle.add_theme_color_override("font_color", Color(0.8, 0.7, 0.6))
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD
-	vbox.add_child(subtitle)
-
-	var stats_lbl = Label.new()
-	stats_lbl.text = "Turn %d reached | Difficulty %d" % [GameState.current_turn, GameState.combat_difficulty]
-	stats_lbl.add_theme_font_size_override("font_size", 14)
-	stats_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
-	stats_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(stats_lbl)
-
-	var btn = Button.new()
-	btn.text = "Return to Main Menu"
-	btn.custom_minimum_size = Vector2(220, 50)
-	btn.add_theme_font_size_override("font_size", 16)
-	btn.pressed.connect(func():
-		overlay.queue_free()
-		get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
-	)
-	vbox.add_child(btn)
-
-func start_city_defense_replay(events: Array, on_done: Callable) -> void:
-	if events.is_empty():
-		on_done.call()
-		return
-
-	_replay_mode = true
-	_replay_on_done = on_done
-
-	# --- Build unit data from event log ---
-	var ally_hp: Dictionary = {}    # name -> hp_max
-	var enemy_hp: Dictionary = {}
-
-	for ev in events:
-		if ev.get("type") != "attack":
-			continue
-		var tname: String = ev.get("target_name", "")
-		var thp_max: int = ev.get("target_hp_max", 100)
-		if ev.get("target_is_ally", false):
-			if not ally_hp.has(tname):
-				ally_hp[tname] = thp_max
-		else:
-			if not enemy_hp.has(tname):
-				enemy_hp[tname] = thp_max
-		var aname: String = ev.get("attacker_name", "")
-		if ev.get("attacker_is_ally", false):
-			if not ally_hp.has(aname):
-				ally_hp[aname] = 100
-		else:
-			if not enemy_hp.has(aname):
-				enemy_hp[aname] = 100
-
-	# Create SoldierData and EnemyData for display
-	var allies_arr: Array[SoldierData] = []
-	for unit_name in ally_hp:
-		var s = SoldierData.new()
-		s.soldier_name = unit_name
-		s.hp_max = ally_hp[unit_name]
-		s.hp_current = ally_hp[unit_name]
-		allies_arr.append(s)
-
-	var enemies_arr: Array[EnemyData] = []
-	for unit_name in enemy_hp:
-		var e = EnemyData.new()
-		e.enemy_name = unit_name
-		e.hp_max = enemy_hp[unit_name]
-		e.hp_current = enemy_hp[unit_name]
-		enemies_arr.append(e)
-
-	CombatState.allies = allies_arr
-	CombatState.enemies = enemies_arr
-
-	GameState.menu_open = true
-	show()
-	selected_target = null
-	_build_units()
-	_add_log("— City Defense Replay —", Color(1.0, 0.5, 0.2))
-	turn_label.text = "City Defense — Replay"
-
-	# Disable interactive buttons
-	$ActionPanel/MarginContainer/VBoxContainer/HBoxButtons/BtnAttack.disabled = true
-	$ActionPanel/MarginContainer/VBoxContainer/HBoxButtons/BtnDefend.disabled = true
-	btn_auto.disabled = true
-	btn_speed_2x.disabled = true
-
-	# Skip button
-	var skip_btn = Button.new()
-	skip_btn.name = "ReplaySkipBtn"
-	skip_btn.text = "Skip Replay"
-	skip_btn.position = Vector2(1050, 680)
-	skip_btn.custom_minimum_size = Vector2(220, 44)
-	skip_btn.add_theme_font_size_override("font_size", 15)
-	skip_btn.pressed.connect(func():
-		if _replay_mode:
-			_replay_mode = false
-			_end_city_defense_replay()
-	)
-	add_child(skip_btn)
-
-	_run_city_defense_replay_events(events, skip_btn)
-
-func _end_city_defense_replay() -> void:
-	_replay_mode = false
-	$ActionPanel/MarginContainer/VBoxContainer/HBoxButtons/BtnAttack.disabled = false
-	$ActionPanel/MarginContainer/VBoxContainer/HBoxButtons/BtnDefend.disabled = false
-	btn_auto.disabled = false
-	btn_speed_2x.disabled = false
-	var skip_btn = get_node_or_null("ReplaySkipBtn")
-	if skip_btn:
-		skip_btn.queue_free()
-	for child in log_container.get_children():
-		child.queue_free()
 	CombatState.allies.clear()
 	CombatState.enemies.clear()
 	GameState.menu_open = false
 	hide()
-	if _replay_on_done.is_valid():
-		_replay_on_done.call()
-
-func _run_city_defense_replay_events(events: Array, skip_btn: Button) -> void:
-	for ev in events:
-		if not _replay_mode:
-			return
-
-		if ev.get("type") == "attack":
-			var attacker: String = ev.get("attacker_name", "?")
-			var target_name: String = ev.get("target_name", "?")
-			var dmg: int = ev.get("damage", 0)
-			var hp_after: int = ev.get("target_hp_after", 0)
-			var is_ally_att: bool = ev.get("attacker_is_ally", false)
-
-			turn_label.text = "%s attacks %s" % [attacker, target_name]
-
-			# Update unit HP
-			var all_units: Array = []
-			all_units.append_array(CombatState.allies)
-			all_units.append_array(CombatState.enemies)
-			for unit in all_units:
-				var uname = unit.soldier_name if unit is SoldierData else unit.enemy_name
-				if uname == target_name:
-					unit.hp_current = hp_after
-					break
-			_refresh_all_cards()
-
-			await _add_log("%s → %s  [-%d]" % [attacker, target_name, dmg],
-				Color(0.5, 0.9, 0.5) if is_ally_att else Color(0.9, 0.5, 0.4))
-
-		elif ev.get("type") == "death":
-			var unit_name: String = ev.get("unit_name", "?")
-			turn_label.text = "%s has fallen!" % unit_name
-			var all_units: Array = []
-			all_units.append_array(CombatState.allies)
-			all_units.append_array(CombatState.enemies)
-			for unit in all_units:
-				var uname = unit.soldier_name if unit is SoldierData else unit.enemy_name
-				if uname == unit_name and unit_combat_cards.has(unit):
-					unit_combat_cards[unit].modulate = Color(0.4, 0.4, 0.4)
-					break
-			await _add_log("✗ %s defeated!" % unit_name, Color(0.85, 0.3, 0.3))
-
-		await get_tree().create_timer(0.5).timeout
-
-	if not _replay_mode:
-		return
-
-	turn_label.text = "— Replay Complete —"
-	await _add_log("— Replay Complete —", Color(0.85, 0.82, 0.5))
-	if is_instance_valid(skip_btn):
-		skip_btn.text = "Continue"
+	spectator_battle_finished.emit(victory)

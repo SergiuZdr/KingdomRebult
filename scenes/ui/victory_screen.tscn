@@ -1,0 +1,67 @@
+[gd_scene load_steps=2 format=3 uid="uid://victory_screen"]
+
+[ext_resource type="Script" path="res://scripts/ui/victory_screen.gd" id="1_vicscr"]
+
+[node name="VictoryScreen" type="CanvasLayer"]
+layer = 130
+script = ExtResource("1_vicscr")
+
+[node name="Background" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.05, 0.05, 0.08, 0.92)
+
+[node name="Center" type="CenterContainer" parent="Background"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="Background/Center"]
+custom_minimum_size = Vector2(700, 550)
+
+[node name="VBox" type="VBoxContainer" parent="Background/Center/Panel"]
+theme_override_constants/separation = 12
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Background/Center/Panel/VBox"]
+layout_mode = 2
+horizontal_alignment = 1
+text = "The City Stands"
+theme_type_variation = &"Title"
+theme_override_font_sizes/font_size = 28
+theme_override_colors/font_color = Color(0.545098, 0.172549, 0.172549, 1)
+
+[node name="SepTop" type="HSeparator" parent="Background/Center/Panel/VBox"]
+layout_mode = 2
+
+[node name="Body" type="Label" parent="Background/Center/Panel/VBox"]
+custom_minimum_size = Vector2(0, 350)
+layout_mode = 2
+size_flags_vertical = 3
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.180392, 0.145098, 0.098039, 1)
+
+[node name="Stats" type="Label" parent="Background/Center/Panel/VBox"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.352941, 0.290196, 0.211765, 1)
+
+[node name="SepBottom" type="HSeparator" parent="Background/Center/Panel/VBox"]
+layout_mode = 2
+
+[node name="ButtonRow" type="CenterContainer" parent="Background/Center/Panel/VBox"]
+layout_mode = 2
+
+[node name="MenuButton" type="Button" parent="Background/Center/Panel/VBox/ButtonRow"]
+custom_minimum_size = Vector2(240, 44)
+layout_mode = 2
+text = "Return to the Kingdom"
+
+[connection signal="pressed" from="Background/Center/Panel/VBox/ButtonRow/MenuButton" to="." method="_on_menu_button_pressed"]

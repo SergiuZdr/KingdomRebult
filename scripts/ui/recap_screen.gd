@@ -1,195 +1,362 @@
 # recap_screen.gd
+# Turn recap shown after End Turn, before faction event popups.
+# All UI nodes live in recap_screen.tscn; this script only references them
+# via @onready and fills the data-driven sections.
 extends CanvasLayer
 
-@onready var title_label: Label = $Panel/Title
-@onready var recap_list: VBoxContainer = $Panel/ScrollContainer/RecapList
-@onready var btn_continue: Button = $Panel/BtnContinue
+# --- Header ---
+@onready var title_label: Label = $Panel/Root/Header/HeaderRow/Title
+@onready var net_summary: Label = $Panel/Root/Header/HeaderRow/NetSummary
 
-var summary_label: Label
+# --- Threat section ---
+@onready var threat_value: Label = $Panel/Root/Body/BodyColumn/ThreatSection/ThreatHeaderRow/ThreatValue
+@onready var threat_bar: ProgressBar = $Panel/Root/Body/BodyColumn/ThreatSection/ThreatBar
+@onready var threat_forecast: Label = $Panel/Root/Body/BodyColumn/ThreatSection/ThreatForecast
+
+# --- Faction section ---
+@onready var faction_section: VBoxContainer = $Panel/Root/Body/BodyColumn/FactionSection
+@onready var faction_list: VBoxContainer = $Panel/Root/Body/BodyColumn/FactionSection/FactionList
+
+# --- Resource section ---
+@onready var resource_section: VBoxContainer = $Panel/Root/Body/BodyColumn/ResourceSection
+@onready var resource_grid: GridContainer = $Panel/Root/Body/BodyColumn/ResourceSection/ResourceGrid
+
+# --- Events ("This Turn") section ---
+@onready var recap_list: VBoxContainer = $Panel/Root/Body/BodyColumn/EventsSection/ScrollContainer/RecapList
+@onready var events_scroll: ScrollContainer = $Panel/Root/Body/BodyColumn/EventsSection/ScrollContainer
+@onready var recap_panel: PanelContainer = $Panel
+
+# --- Footer ---
+@onready var btn_continue: Button = $Panel/Root/Footer/FooterRow/BtnContinue
+
+# Repointed to the shared ruined-city palette so the recap matches every other screen.
+const COLOR_PARCHMENT := GameTheme.INK
+const COLOR_MUTED := GameTheme.INK_SOFT
+const COLOR_GAIN := GameTheme.MOSS
+const COLOR_LOSS := GameTheme.CRIMSON
+const COLOR_WARN := GameTheme.LEATHER
+const COLOR_GOLD := GameTheme.CRIMSON
+
+# Threat fill colors: calm below 50%, warning 50-79%, danger 80%+.
+const THREAT_CALM := GameTheme.IRON
+const THREAT_WARN := GameTheme.LEATHER
+const THREAT_DANGER := GameTheme.WAX
+
+const RESOURCE_ORDER: Array[String] = ["Gold", "Wood", "Stone", "Iron", "Steel", "Food", "Morale"]
 
 func _ready() -> void:
-	_ensure_summary_label()
+	$Panel.theme = GameTheme.get_theme()
+	_recolor_styleboxes()
+	# Lighter parchment window frame — the heavy wood frame read as unpolished
+	# for a big text document. Slim torn-paper border, flat readable center.
+	var frame_sb := PixelUI.parchment_window_stylebox(10)
+	if frame_sb != null:
+		$Panel.add_theme_stylebox_override("panel", frame_sb)
 	btn_continue.pressed.connect(_on_continue)
 	GameState.recap_ready.connect(_on_recap_ready)
 	hide()
 
-func _ensure_summary_label() -> void:
-	if summary_label != null:
-		return
+# ---------------------------------------------------------------------------
+# Repoint the .tscn's hardcoded StyleBoxFlat colors to GameTheme constants so
+# the recap stays in sync with the rest of the parchment UI. Each stylebox is
+# duplicated before mutation since some SubResources are shared between nodes
+# (Header + Footer, and the three BtnContinue states).
+# ---------------------------------------------------------------------------
+func _recolor_styleboxes() -> void:
+	# Main panel — parchment face, iron-highlight border.
+	var panel_sb := ($Panel.get_theme_stylebox("panel") as StyleBoxFlat).duplicate() as StyleBoxFlat
+	panel_sb.bg_color = GameTheme.PARCHMENT
+	panel_sb.border_color = Color(GameTheme.IRON_HI.r, GameTheme.IRON_HI.g, GameTheme.IRON_HI.b, 0.470588)
+	$Panel.add_theme_stylebox_override("panel", panel_sb)
 
-	summary_label = Label.new()
-	summary_label.position = Vector2(20, 28)
-	summary_label.size = Vector2(560, 28)
-	summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD
-	summary_label.add_theme_font_size_override("font_size", 13)
-	summary_label.add_theme_color_override("font_color", Color(0.82, 0.88, 0.96))
-	$Panel.add_child(summary_label)
+	# Header banner — crimson cloth strip.
+	var header := $Panel/Root/Header
+	var header_sb := (header.get_theme_stylebox("panel") as StyleBoxFlat).duplicate() as StyleBoxFlat
+	header_sb.bg_color = GameTheme.CRIMSON
+	header_sb.border_color = Color(GameTheme.IRON_HI.r, GameTheme.IRON_HI.g, GameTheme.IRON_HI.b, 0.392157)
+	header.add_theme_stylebox_override("panel", header_sb)
+
+	# Footer — same crimson banner look as the header (separate SubResource instance).
+	var footer := $Panel/Root/Footer
+	var footer_sb := (footer.get_theme_stylebox("panel") as StyleBoxFlat).duplicate() as StyleBoxFlat
+	footer_sb.bg_color = GameTheme.CRIMSON
+	footer_sb.border_color = Color(GameTheme.IRON_HI.r, GameTheme.IRON_HI.g, GameTheme.IRON_HI.b, 0.392157)
+	footer.add_theme_stylebox_override("panel", footer_sb)
+
+	# Threat bar trough — sunken parchment shade. Border kept as authored (no
+	# matching GameTheme constant for the dark outline).
+	var threat_bg := (threat_bar.get_theme_stylebox("background") as StyleBoxFlat).duplicate() as StyleBoxFlat
+	threat_bg.bg_color = GameTheme.PARCH_SHADE
+	threat_bar.add_theme_stylebox_override("background", threat_bg)
+
+	# Threat bar fill — default to the "calm" tint; _populate_threat() repaints
+	# this per-turn based on the threat percentage.
+	var threat_fill := (threat_bar.get_theme_stylebox("fill") as StyleBoxFlat).duplicate() as StyleBoxFlat
+	threat_fill.bg_color = THREAT_CALM
+	threat_bar.add_theme_stylebox_override("fill", threat_fill)
+
+	# Continue button — crimson action fill, iron-highlight border, all states share one look.
+	var continue_sb := (btn_continue.get_theme_stylebox("normal") as StyleBoxFlat).duplicate() as StyleBoxFlat
+	continue_sb.bg_color = GameTheme.CRIMSON
+	continue_sb.border_color = Color(GameTheme.IRON_HI.r, GameTheme.IRON_HI.g, GameTheme.IRON_HI.b, 0.627451)
+	btn_continue.add_theme_stylebox_override("normal", continue_sb)
+	btn_continue.add_theme_stylebox_override("hover", continue_sb)
+	btn_continue.add_theme_stylebox_override("pressed", continue_sb)
 
 func _on_recap_ready() -> void:
 	title_label.text = "Turn %d Recap" % GameState.current_turn
-	summary_label.text = _build_summary_text()
-	_populate(GameState.turn_recap)
+	net_summary.text = _build_net_summary_text()
+	_populate_threat()
+	_populate_factions()
+	_populate_resources()
+	_populate_events(GameState.turn_recap)
 	show()
+	UIKit.fade_in($Panel)
 	GameState.menu_open = true
+	_fit_panel_to_content()
 
-func _build_summary_text() -> String:
-	var deltas = GameState.last_turn_resource_deltas
+# Shrink the window to its content so quiet turns don't leave a tall empty void.
+# A long event log is capped and scrolls instead of stretching the panel.
+func _fit_panel_to_content() -> void:
+	await get_tree().process_frame
+	var list_h: float = recap_list.get_combined_minimum_size().y
+	events_scroll.custom_minimum_size.y = clampf(list_h, 0.0, 240.0)
+	await get_tree().process_frame
+	var h: float = clampf(recap_panel.get_combined_minimum_size().y, 240.0, 660.0)
+	recap_panel.offset_top = -h * 0.5
+	recap_panel.offset_bottom = h * 0.5
+
+# ---------------------------------------------------------------------------
+# Header net summary
+# ---------------------------------------------------------------------------
+func _build_net_summary_text() -> String:
+	var deltas: Dictionary = GameState.last_turn_resource_deltas
 	var parts: Array[String] = []
-	for res in ["Gold", "Food", "Wood", "Stone", "Morale"]:
-		var d = int(deltas.get(res, 0))
+	for res in RESOURCE_ORDER:
+		var d := int(deltas.get(res, 0))
 		if d != 0:
 			parts.append("%s %s%d" % [res, "+" if d > 0 else "", d])
 	if parts.is_empty():
-		return "No net resource change this turn."
-	return "Net: " + "  |  ".join(parts)
+		return "No net change this turn"
+	return "  ".join(parts)
 
-func _populate(lines: Array) -> void:
+# ---------------------------------------------------------------------------
+# Threat bar
+# ---------------------------------------------------------------------------
+func _populate_threat() -> void:
+	var threat := int(GameState.threat)
+	var threat_max := int(GameState.threat_max)
+	var pct: float = 0.0 if threat_max <= 0 else clampf(float(threat) / float(threat_max) * 100.0, 0.0, 100.0)
+
+	threat_bar.max_value = 100.0
+	threat_bar.value = pct
+	threat_value.text = "%d%%" % int(round(pct))
+
+	var fill_color := THREAT_CALM
+	if pct >= 80.0:
+		fill_color = THREAT_DANGER
+		threat_value.add_theme_color_override("font_color", THREAT_DANGER)
+	elif pct >= 50.0:
+		fill_color = THREAT_WARN
+		threat_value.add_theme_color_override("font_color", THREAT_WARN)
+	else:
+		threat_value.add_theme_color_override("font_color", COLOR_PARCHMENT)
+
+	var fill_style := threat_bar.get_theme_stylebox("fill")
+	if fill_style is StyleBoxFlat:
+		(fill_style as StyleBoxFlat).bg_color = fill_color
+
+	threat_forecast.text = _threat_forecast_text()
+
+func _threat_forecast_text() -> String:
+	var diff := int(GameState.combat_difficulty)
+	var gain := int(GameState._get_threat_gain())
+	var is_boss := diff > 0 and diff % 5 == 0
+	var boss_tag := "   BOSS WAVE INCOMING" if is_boss else ""
+	return "Difficulty %d   |   +%d threat/turn%s" % [diff, gain, boss_tag]
+
+# ---------------------------------------------------------------------------
+# Faction standing changes (only factions that moved this turn)
+# ---------------------------------------------------------------------------
+func _populate_factions() -> void:
+	for child in faction_list.get_children():
+		child.queue_free()
+
+	var changes := FactionState.get_turn_standing_changes()
+	if changes.is_empty():
+		faction_section.hide()
+		return
+
+	faction_section.show()
+	for change in changes:
+		faction_list.add_child(_make_faction_row(change))
+
+func _make_faction_row(change: Dictionary) -> Control:
+	var faction_color: Color = change.get("color", COLOR_PARCHMENT)
+	var delta := int(change.get("delta", 0))
+	var value := int(change.get("value", 0))
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+
+	# Left color chip to identify the faction at a glance.
+	var chip := ColorRect.new()
+	chip.color = faction_color
+	chip.custom_minimum_size = Vector2(4, 0)
+	chip.size_flags_vertical = Control.SIZE_FILL
+	row.add_child(chip)
+
+	var name_lbl := Label.new()
+	name_lbl.text = str(change.get("name", "Faction"))
+	name_lbl.add_theme_color_override("font_color", faction_color)
+	name_lbl.add_theme_font_size_override("font_size", 14)
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(name_lbl)
+
+	var delta_lbl := Label.new()
+	delta_lbl.text = "%s%d" % ["+" if delta > 0 else "", delta]
+	delta_lbl.add_theme_color_override("font_color", COLOR_GAIN if delta > 0 else COLOR_LOSS)
+	delta_lbl.add_theme_font_size_override("font_size", 14)
+	delta_lbl.custom_minimum_size = Vector2(44, 0)
+	delta_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(delta_lbl)
+
+	var standing_lbl := Label.new()
+	standing_lbl.text = "%s (%d)" % [str(change.get("label", "")), value]
+	standing_lbl.add_theme_color_override("font_color", COLOR_MUTED)
+	standing_lbl.add_theme_font_size_override("font_size", 13)
+	standing_lbl.custom_minimum_size = Vector2(110, 0)
+	standing_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(standing_lbl)
+
+	return row
+
+# ---------------------------------------------------------------------------
+# Resource deltas (only resources that changed)
+# ---------------------------------------------------------------------------
+func _populate_resources() -> void:
+	for child in resource_grid.get_children():
+		child.queue_free()
+
+	var deltas: Dictionary = GameState.last_turn_resource_deltas
+	var shown := 0
+	for res in RESOURCE_ORDER:
+		var d := int(deltas.get(res, 0))
+		if d == 0:
+			continue
+		resource_grid.add_child(_make_resource_chip(res, d))
+		shown += 1
+
+	resource_section.visible = shown > 0
+
+func _make_resource_chip(res_name: String, delta: int) -> Control:
+	var cell := HBoxContainer.new()
+	cell.add_theme_constant_override("separation", 5)
+
+	var icon_path := "res://assets/icons/resources/%s.png" % res_name.to_lower()
+	if ResourceLoader.exists(icon_path):
+		var ic := UIKit.icon(icon_path, 18)
+		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		cell.add_child(ic)
+
+	var name_lbl := Label.new()
+	name_lbl.text = res_name
+	name_lbl.add_theme_color_override("font_color", COLOR_PARCHMENT)
+	name_lbl.add_theme_font_size_override("font_size", 13)
+	cell.add_child(name_lbl)
+
+	var delta_lbl := Label.new()
+	delta_lbl.text = "%s%d" % ["+" if delta > 0 else "", delta]
+	delta_lbl.add_theme_color_override("font_color", COLOR_GAIN if delta > 0 else COLOR_LOSS)
+	delta_lbl.add_theme_font_size_override("font_size", 13)
+	cell.add_child(delta_lbl)
+
+	return cell
+
+# ---------------------------------------------------------------------------
+# "This Turn" event stream
+# Section dividers (=== / ---), the threat forecast line, and the net-resources
+# summary are filtered out because they now have dedicated UI above.
+# ---------------------------------------------------------------------------
+func _populate_events(lines: Array) -> void:
 	for child in recap_list.get_children():
 		child.queue_free()
 
-	for line in lines:
+	var any_shown := false
+	for raw_line in lines:
+		var line := str(raw_line)
+		if _is_skippable_line(line):
+			continue
 		if line == "":
-			var spacer = Control.new()
-			spacer.custom_minimum_size = Vector2(520, 10)
+			var spacer := Control.new()
+			spacer.custom_minimum_size = Vector2(0, 6)
 			recap_list.add_child(spacer)
 			continue
 
-		var label = Label.new()
+		var label := Label.new()
 		label.text = line
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD
-		label.custom_minimum_size = Vector2(520, 0)
+		label.custom_minimum_size = Vector2(540, 0)
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_apply_line_style(label, line)
 		recap_list.add_child(label)
+		any_shown = true
+
+	if not any_shown:
+		var quiet := Label.new()
+		quiet.text = "A quiet turn. The city rests."
+		quiet.add_theme_color_override("font_color", COLOR_MUTED)
+		quiet.add_theme_font_size_override("font_size", 13)
+		recap_list.add_child(quiet)
+
+func _is_skippable_line(line: String) -> bool:
+	if line.begins_with("==="):
+		return true
+	if line.begins_with("Threat ") and line.contains("/turn"):
+		return true
+	if line.begins_with("Net resources gain:"):
+		return true
+	return false
 
 func _apply_line_style(label: Label, line: String) -> void:
-	if line.begins_with("==="):
-		label.add_theme_font_size_override("font_size", 18)
-		label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
-		return
-
+	# Subsection headers like "--- Production ---"
 	if line.begins_with("---"):
-		label.add_theme_font_size_override("font_size", 15)
-		label.add_theme_color_override("font_color", Color(0.55, 0.82, 1.0))
+		label.text = line.replace("---", "").strip_edges().to_upper()
+		label.add_theme_font_size_override("font_size", 13)
+		label.add_theme_color_override("font_color", COLOR_GOLD)
 		return
 
-	if line.begins_with("Resources:") or line.begins_with("Net resources gain:"):
-		label.add_theme_font_size_override("font_size", 14)
-		label.add_theme_color_override("font_color", Color(0.55, 1.0, 0.72))
+	if line.begins_with("[+]") or line.contains("reached Level") or line.contains("complete!") or line.contains("upgraded"):
+		label.add_theme_font_size_override("font_size", 13)
+		label.add_theme_color_override("font_color", COLOR_GAIN)
 		return
 
-	if line.begins_with("[+]"):
-		label.add_theme_font_size_override("font_size", 14)
-		label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.55))
+	if line.begins_with("[!]") or line.contains("shortage") or line.contains("unfed") or line.contains("underfed") or line.contains("attacked") or line.contains("steal"):
+		label.add_theme_font_size_override("font_size", 13)
+		label.add_theme_color_override("font_color", COLOR_LOSS)
 		return
 
-	if line.begins_with("[!]"):
-		label.add_theme_font_size_override("font_size", 14)
-		label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
+	if line.begins_with("[~]") or line.contains("arrives!") or line.contains("arrived!") or line.contains("Threat +") or line.contains("Low Morale"):
+		label.add_theme_font_size_override("font_size", 13)
+		label.add_theme_color_override("font_color", COLOR_WARN)
 		return
 
-	if line.begins_with("[~]"):
-		label.add_theme_font_size_override("font_size", 14)
-		label.add_theme_color_override("font_color", Color(0.85, 0.78, 0.45))
+	if line.contains("High Morale") or line.contains("disrupt the Veiled"):
+		label.add_theme_color_override("font_color", COLOR_GAIN)
 		return
 
-	if line.contains("shortage") or line.contains("unfed") or line.contains("underfed"):
-		label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
+	if line.begins_with("No production") or line.begins_with("No training") or line.begins_with("No soldiers") or line.begins_with("No net change"):
+		label.add_theme_color_override("font_color", COLOR_MUTED)
 		return
 
-	if line.contains("Morale -") or line.contains("Morale -%"):
-		label.add_theme_color_override("font_color", Color(1.0, 0.55, 0.2))
-		return
+	label.add_theme_font_size_override("font_size", 13)
+	label.add_theme_color_override("font_color", Color(0.180392, 0.145098, 0.098039, 1))
 
-	if line.contains("Threat:") or line.contains("arrives!") or line.contains("arrived!"):
-		label.add_theme_font_size_override("font_size", 14)
-		label.add_theme_color_override("font_color", Color(1.0, 0.65, 0.32))
-		return
-
-	if line.contains("Level"):
-		label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.5))
-		return
-
-	if line.contains("Low Morale"):
-		label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.2))
-		return
-
-	if line.contains("High Morale"):
-		label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.55))
-		return
-
-	if line.contains("No production") or line.contains("No training") or line.contains("No soldiers"):
-		label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65))
-		return
-
-	if line.find("(") != -1 and line.find("workers") != -1:
-		label.add_theme_color_override("font_color", Color(0.9, 0.92, 0.98))
-		return
-
-	label.add_theme_color_override("font_color", Color(0.82, 0.82, 0.86))
-
+# ---------------------------------------------------------------------------
+# Continue / event-popup forwarding (unchanged contract)
+# ---------------------------------------------------------------------------
 func _on_continue() -> void:
+	SaveManager.save_game(SaveManager.current_slot)  # auto-save to the active slot
 	GameState.menu_open = false
-	var city_view = get_tree().get_root().find_child("CityView", true, false)
-	if city_view != null:
-		city_view.get_node("UI").visible = true
+	get_tree().call_group("city_view", "_on_recap_dismissed")
 	hide()
-	if not GameState._pending_event_data.is_empty():
-		_show_event_popup(GameState._pending_event_data.duplicate())
-		GameState._pending_event_data.clear()
-
-func _show_event_popup(event: Dictionary) -> void:
-	GameState.menu_open = true
-	var overlay = CanvasLayer.new()
-	overlay.layer = 80
-	get_tree().get_root().add_child(overlay)
-
-	var bg = ColorRect.new()
-	bg.color = Color(0.05, 0.05, 0.08, 0.88)
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(bg)
-
-	var panel = PanelContainer.new()
-	panel.position = Vector2(440, 200)
-	panel.custom_minimum_size = Vector2(400, 260)
-	overlay.add_child(panel)
-
-	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 12)
-	panel.add_child(vbox)
-
-	var category = event.get("category", "neutral")
-	var prefix_color = Color(0.3, 1.0, 0.55) if category == "good" else (Color(1.0, 0.35, 0.35) if category == "bad" else Color(0.85, 0.78, 0.45))
-
-	var title_lbl = Label.new()
-	title_lbl.text = event.get("title", "Event")
-	title_lbl.add_theme_font_size_override("font_size", 22)
-	title_lbl.add_theme_color_override("font_color", prefix_color)
-	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(title_lbl)
-
-	var desc_lbl = Label.new()
-	desc_lbl.text = event.get("description", "")
-	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
-	desc_lbl.custom_minimum_size = Vector2(360, 0)
-	desc_lbl.add_theme_color_override("font_color", Color(0.85, 0.82, 0.78))
-	vbox.add_child(desc_lbl)
-
-	for effect in event.get("effects", []):
-		var amt = int(effect.get("amount", 0))
-		var eff_lbl = Label.new()
-		eff_lbl.text = "%s %s%d" % [effect.get("resource", ""), "+" if amt >= 0 else "", amt]
-		eff_lbl.add_theme_color_override("font_color", prefix_color)
-		eff_lbl.add_theme_font_size_override("font_size", 16)
-		eff_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		vbox.add_child(eff_lbl)
-
-	var dismiss_btn = Button.new()
-	dismiss_btn.text = "Continue"
-	dismiss_btn.custom_minimum_size = Vector2(360, 40)
-	dismiss_btn.add_theme_font_size_override("font_size", 14)
-	dismiss_btn.pressed.connect(func():
-		GameState.menu_open = false
-		overlay.queue_free()
-	)
-	vbox.add_child(dismiss_btn)

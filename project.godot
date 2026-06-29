@@ -11,17 +11,26 @@ config_version=5
 [application]
 
 config/name="KingdomRebuild"
-run/main_scene="uid://cpvhhe350wkew"
+run/main_scene="res://scenes/ui/main_menu.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 
 [autoload]
 
 GameState="*uid://bbptki0er4tsl"
-BuildingPopup="*uid://cgcyy0m4kd4jq"
+GameEvents="*res://scripts/autoload/GameEvents.gd"
+BuildingPopup="*res://scenes/ui/building_popup.tscn"
 CombatState="*uid://bl6smara6dxkq"
 SaveManager="*uid://6twmscj8jrs2"
 TraitChecker="*uid://cfq2nucef3px5"
 DungeonState="*res://scripts/autoload/DungeonState.gd"
+StoryManager="*res://scripts/autoload/StoryManager.gd"
+FactionState="*res://scripts/autoload/FactionState.gd"
+FactionEvents="*res://scripts/autoload/FactionEvents.gd"
+Settings="*res://scripts/autoload/Settings.gd"
+MusicManager="*res://scripts/autoload/MusicManager.gd"
+SFX="*res://scripts/autoload/SFX.gd"
+SceneFader="*res://scripts/autoload/SceneFader.gd"
+PauseMenu="*res://scripts/autoload/PauseMenu.gd"
 
 [display]
 
@@ -31,7 +40,7 @@ window/stretch/mode="canvas_items"
 
 [editor_plugins]
 
-enabled=PackedStringArray()
+enabled=PackedStringArray("res://addons/godot-copy-all-errors-5ab5055222311666b16982270e1fac051cdd17aa/addons/copy_all_errors/plugin.cfg")
 
 [physics]
 
@@ -47,6 +56,7 @@ ai_assistant_hub/preferences/audio_hints=true
 
 [rendering]
 
+textures/canvas_textures/default_texture_filter=0
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"

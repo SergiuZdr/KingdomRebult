@@ -1,0 +1,48 @@
+[gd_scene load_steps=2 format=3 uid="uid://dungeon_backdrop_v1"]
+
+[ext_resource type="Script" path="res://scenes/dungeon/components/dungeon_backdrop.gd" id="1_dbscript"]
+
+[node name="DungeonBackdrop" type="Control"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_dbscript")
+
+[node name="Base" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.086, 0.078, 0.114, 1.0)
+
+[node name="WallTile" type="TextureRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+stretch_mode = 3
+
+[node name="Vignette" type="TextureRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+stretch_mode = 6
+
+[node name="Arch" type="TextureRect" parent="."]
+mouse_filter = 2
+
+[node name="PillarL" type="TextureRect" parent="."]
+mouse_filter = 2
+
+[node name="PillarR" type="TextureRect" parent="."]
+mouse_filter = 2

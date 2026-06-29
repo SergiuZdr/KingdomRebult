@@ -17,6 +17,7 @@ enum TraitTrigger { COMBAT, LEVEL_UP }
 @export var defense_bonus: int = 0
 @export var hit_chance_bonus: float = 0.0
 @export var dodge_bonus: float = 0.0
+@export var max_morale_cap: int = 100
 
 # Conditii de obtinere entru combat traits
 @export var required_kills: int = 0           # ucide X inamici intr-o lupta

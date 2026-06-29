@@ -1,12 +1,12 @@
-[gd_resource type="Resource" script_class="BuildingData" format=3]
+[gd_resource type="Resource" script_class="BuildingData" format=3 uid="uid://ck5liv5e5ne3t"]
 
-[ext_resource type="Script" path="res://scripts/data/BuildingData.gd" id="1_steel_forge"]
+[ext_resource type="Script" uid="uid://c2t8u1irocabi" path="res://scripts/data/BuildingData.gd" id="1_steel_forge"]
 
 [resource]
 script = ExtResource("1_steel_forge")
 building_id = "steel_forge"
 building_name = "Steel Forge"
-description = "Turn iron into steel for advanced equipment and military growth."
+description = "Turn iron into steel for advanced equipment and military growth. Unlocks higher building upgrade tiers."
 category = 1
 cost_gold = 120
 cost_wood = 60
@@ -14,5 +14,11 @@ cost_stone = 40
 build_time = 2
 workforce_required = 1
 max_level = 3
-produces_iron = -9
-produces_steel = 3
+iron_by_level = PackedInt32Array(-4, -5, -6)
+steel_by_level = PackedInt32Array(2, 3, 4)
+upgrade_cost_gold = PackedInt32Array(120, 220)
+upgrade_cost_wood = PackedInt32Array(40, 0)
+upgrade_cost_stone = PackedInt32Array(40, 60)
+upgrade_cost_iron = PackedInt32Array(20, 40)
+upgrade_cost_steel = PackedInt32Array(0, 15)
+upgrade_notes = PackedStringArray("Improves iron-to-steel yield", "Maximum efficiency — best steel ratio")

@@ -4,18 +4,14 @@
 
 [node name="PreCombatScreen" type="Control" unique_id=807255576]
 clip_contents = true
-custom_minimum_size = Vector2(1280, 720)
+custom_minimum_size = Vector2(1200, 720)
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 590.0
-offset_top = 360.0
-offset_right = 670.0
-offset_bottom = 360.0
 grow_horizontal = 2
 grow_vertical = 2
-pivot_offset = Vector2(590, 360)
+pivot_offset = Vector2(600, 360)
 size_flags_horizontal = 4
 size_flags_vertical = 4
 script = ExtResource("1_ea8bj")
@@ -79,10 +75,14 @@ layout_mode = 2
 custom_minimum_size = Vector2(0, 360)
 layout_mode = 2
 size_flags_vertical = 3
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 1
 
 [node name="SoldierList" type="VBoxContainer" parent="Panel/MarginContainer/VBoxContainer/ScrollContainer" unique_id=951153278]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 0
+theme_override_constants/separation = 6
 
 [node name="HSeparator2" type="HSeparator" parent="Panel/MarginContainer/VBoxContainer" unique_id=274349106]
 layout_mode = 2

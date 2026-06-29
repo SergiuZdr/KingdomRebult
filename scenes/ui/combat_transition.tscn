@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://cptbrwn4kyr74"]
 
-[ext_resource type="Script" uid="uid://ppyfmf06u7jr" path="res://combat_transition.gd" id="1_1406u"]
+[ext_resource type="Script" path="res://scenes/ui/combat_transition.gd" id="1_1406u"]
 
 [node name="CombatTransition" type="CanvasLayer" unique_id=1195970697]
 layer = 100

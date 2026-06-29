@@ -1,0 +1,24 @@
+[gd_scene format=3 uid="uid://dh4lam2x1pqr"]
+
+[ext_resource type="Script" path="res://scripts/management/hub_screen.gd" id="1_hubsc"]
+[ext_resource type="PackedScene" uid="uid://bjsvac4b7xqji" path="res://scenes/management/recap_screen.tscn" id="2_recap"]
+[ext_resource type="PackedScene" uid="uid://cqughj8gbnegw" path="res://scenes/combat/combat_scene.tscn" id="3_combt"]
+[ext_resource type="PackedScene" uid="uid://dj3ergoe6l55y" path="res://scenes/combat/pre_combat_screen.tscn" id="4_prebt"]
+[ext_resource type="PackedScene" uid="uid://cptbrwn4kyr74" path="res://scenes/ui/combat_transition.tscn" id="5_trans"]
+
+[node name="HubScreen" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_hubsc")
+
+[node name="RecapScreen" parent="." instance=ExtResource("2_recap")]
+visible = false
+
+[node name="CombatScene" parent="." instance=ExtResource("3_combt")]
+visible = false
+
+[node name="PreCombatScreen" parent="." instance=ExtResource("4_prebt")]
+visible = false
+
+[node name="CombatTransition" parent="." instance=ExtResource("5_trans")]
+visible = false

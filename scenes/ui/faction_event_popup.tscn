@@ -1,0 +1,82 @@
+[gd_scene format=3 uid="uid://faction_event_popup"]
+
+[ext_resource type="Script" path="res://scripts/ui/faction_event_popup.gd" id="1_fevpop"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
+bg_color = Color(0.1, 0.11, 0.16, 0.98)
+border_color = Color(0.55, 0.5, 0.35, 1.0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[node name="FactionEventPopup" type="CanvasLayer"]
+layer = 85
+script = ExtResource("1_fevpop")
+
+[node name="Dimmer" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.6)
+mouse_filter = 1
+
+[node name="Wrapper" type="Control" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Center" type="CenterContainer" parent="Wrapper"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Panel" type="PanelContainer" parent="Wrapper/Center"]
+custom_minimum_size = Vector2(700, 500)
+mouse_filter = 1
+theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
+
+[node name="Margin" type="MarginContainer" parent="Wrapper/Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 18
+
+[node name="RootVBox" type="VBoxContainer" parent="Wrapper/Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="FactionLabel" type="Label" parent="Wrapper/Center/Panel/Margin/RootVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+
+[node name="TitleLabel" type="Label" parent="Wrapper/Center/Panel/Margin/RootVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+
+[node name="HSep1" type="HSeparator" parent="Wrapper/Center/Panel/Margin/RootVBox"]
+layout_mode = 2
+
+[node name="BodyScroll" type="ScrollContainer" parent="Wrapper/Center/Panel/Margin/RootVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 180)
+horizontal_scroll_mode = 0
+
+[node name="BodyLabel" type="Label" parent="Wrapper/Center/Panel/Margin/RootVBox/BodyScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 13
+theme_override_colors/font_color = Color(0.18, 0.145, 0.098, 1.0)
+
+[node name="HSep2" type="HSeparator" parent="Wrapper/Center/Panel/Margin/RootVBox"]
+layout_mode = 2
+
+[node name="ChoicesContainer" type="VBoxContainer" parent="Wrapper/Center/Panel/Margin/RootVBox"]
+layout_mode = 2
+theme_override_constants/separation = 6

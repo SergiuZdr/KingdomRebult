@@ -53,4 +53,3 @@ func _award_trait(soldier: SoldierData, g_trait: TraitData) -> void:
 		]
 	)
 	emit_signal("trait_earned", soldier, g_trait)
-	print("%s earned trait: %s" % [soldier.soldier_name, g_trait.trait_name])

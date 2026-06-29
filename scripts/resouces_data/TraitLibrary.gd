@@ -83,6 +83,13 @@ static func get_all() -> Array[TraitData]:
 			TraitData.TraitTrigger.LEVEL_UP,
 			{power_bonus = 10, hp_bonus = 40, defense_bonus = 5,
 			 hit_chance_bonus = 0.05, required_level = 20}),
+
+		# --- EVENT TRAITS (granted by specific events, cannot be earned normally) ---
+		_make("deserter",
+			"Deserter",
+			"Once fled from duty. Carries the shame — power and spirit are broken. Morale cannot exceed 80.",
+			TraitData.TraitTrigger.COMBAT,
+			{power_bonus = -6, speed_bonus = -6, max_morale_cap = 80}),
 	]
 
 static func _make(id: String, tname: String, desc: String,
@@ -104,4 +111,5 @@ static func _make(id: String, tname: String, desc: String,
 	t.required_damage_taken  = stats.get("required_damage_taken", 0)
 	t.required_level         = stats.get("required_level", 0)
 	t.survive_near_death     = stats.get("survive_near_death", false)
+	t.max_morale_cap         = stats.get("max_morale_cap", 100)
 	return t
